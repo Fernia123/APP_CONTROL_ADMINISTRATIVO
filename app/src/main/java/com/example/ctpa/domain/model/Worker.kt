@@ -2,6 +2,7 @@ package com.example.ctpa.domain.model
 
 data class Worker(
     val id: String = "",
+    val docId: String = "",
     val name: String = "",
     val pin: String = "",
     val photoUrl: String = "",

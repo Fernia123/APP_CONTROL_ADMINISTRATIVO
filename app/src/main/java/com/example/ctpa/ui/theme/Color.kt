@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 val Emerald500 = Color(0xFF10B981)      // Verde principal
 val Emerald600 = Color(0xFF059669)      // Verde hover
 val Emerald50 = Color(0xFFECFDF5)       // Verde muy claro (fondo badge)
+val Emerald700 = Color(0xFF047857)      // Verde intenso (texto)
 val Gray50 = Color(0xFFF9FAFB)          // Fondo pantalla
 val Gray100 = Color(0xFFF3F4F6)         // Fondo botones keypad
 val Gray200 = Color(0xFFE5E7EB)         // Bordes

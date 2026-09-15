@@ -18,5 +18,8 @@ data class Task(
     val signedBy: String? = null,
     val signedTime: String? = null,
     val photoCount: Int = 0,
-    val photoUrls: List<String> = emptyList()
+    val photoUrls: List<String> = emptyList(),
+    val workerId: String = "",
+    val workerName: String = "",
+    val deadline: Long = 0L
 )
