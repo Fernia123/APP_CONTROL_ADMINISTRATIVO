@@ -23,6 +23,7 @@ fun TimerCard(
     targetTime: String,
     isOnBreak: Boolean,
     onTakeBreak: () -> Unit,
+    facilityName: String = "Main Facility",
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -110,7 +111,7 @@ fun TimerCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     Text("Facility", style = MaterialTheme.typography.labelSmall, color = Gray500)
-                    Text("Sector 7 Plant", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = Gray900)
+                    Text(facilityName.ifBlank { "Main Facility" }, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = Gray900)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Box(

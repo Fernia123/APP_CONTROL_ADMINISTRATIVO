@@ -107,6 +107,10 @@ private fun TasksSection(
     uiState: WorkerDashboardUiState,
     timeFormatted: String
 ) {
+    val totalCount = uiState.tasks.size
+    val completedCount = uiState.tasks.count { it.status == TaskStatus.COMPLETED || it.status == TaskStatus.DONE }
+    val activeCount = uiState.tasks.count { it.status == TaskStatus.ACTIVE || it.status == TaskStatus.IN_PROGRESS }
+
     Column {
         // 1. Timer Card
         TimerCard(
@@ -115,6 +119,7 @@ private fun TasksSection(
             targetTime = uiState.targetTime,
             isOnBreak = uiState.isOnBreak,
             onTakeBreak = { viewModel.toggleBreak() },
+            facilityName = uiState.facility,
             modifier = Modifier.padding(16.dp)
         )
 
@@ -143,6 +148,7 @@ private fun TasksSection(
         }
 
         uiState.message?.let { message ->
+            Spacer(modifier = Modifier.height(8.dp))
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -172,7 +178,7 @@ private fun TasksSection(
             ) {
                 Text("Today's Assigned Tasks", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Gray900)
                 Spacer(modifier = Modifier.weight(1f))
-                Text("2 of 5 Completed", style = MaterialTheme.typography.labelSmall, color = Emerald600, fontWeight = FontWeight.SemiBold)
+                Text("$completedCount of $totalCount Completed", style = MaterialTheme.typography.labelSmall, color = Emerald600, fontWeight = FontWeight.SemiBold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -186,7 +192,7 @@ private fun TasksSection(
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                val tabs = listOf("All (5)", "Active (2)", "Done (3)")
+                val tabs = listOf("All ($totalCount)", "Active ($activeCount)", "Done ($completedCount)")
                 tabs.forEachIndexed { index, tab ->
                     val isSelected = uiState.selectedTab == index
                     FilterChip(
@@ -204,10 +210,37 @@ private fun TasksSection(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Lista de Tareas
-            uiState.tasks.forEach { task ->
-                TaskItem(task = task)
-                Spacer(modifier = Modifier.height(12.dp))
+            // Lista de Tareas Filtradas
+            val filteredTasks = when (uiState.selectedTab) {
+                1 -> uiState.tasks.filter { it.status == TaskStatus.ACTIVE || it.status == TaskStatus.IN_PROGRESS }
+                2 -> uiState.tasks.filter { it.status == TaskStatus.COMPLETED || it.status == TaskStatus.DONE }
+                else -> uiState.tasks
+            }
+
+            if (filteredTasks.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = White)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (uiState.isLoading) "Cargando tareas..." else "No hay tareas asignadas en esta categoría",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Gray500
+                        )
+                    }
+                }
+            } else {
+                filteredTasks.forEach { task ->
+                    TaskItem(task = task)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
             }
         }
 

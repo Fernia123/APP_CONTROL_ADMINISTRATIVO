@@ -32,7 +32,7 @@ fun AppNavigation() {
                     navController.navigate(Routes.ADMIN_DASHBOARD)
                 },
                 onNavigateToWorker = { worker: Worker ->
-                    navController.navigate(Routes.workerDashboard(worker.id))
+                    navController.navigate(Routes.workerDashboard(worker.docId))
                 }
             )
         }
