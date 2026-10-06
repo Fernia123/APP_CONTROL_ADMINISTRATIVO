@@ -4,6 +4,7 @@ package com.example.ctpa.ui.screens.worker
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -13,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -22,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ctpa.domain.model.TaskStatus
 import com.example.ctpa.ui.components.*
 import com.example.ctpa.ui.theme.*
+import androidx.compose.foundation.layout.ColumnScope
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,9 +94,9 @@ fun WorkerDashboardScreen(
         ) {
             when (uiState.selectedSection) {
                 0 -> TasksSection(viewModel, uiState, timeFormatted)
-                1 -> PlaceholderSection("SCHEDULE", "Tu horario y turnos aparecerán aquí.")
-                2 -> PlaceholderSection("HISTORY", "El historial de turnos y horas registradas aparecerá aquí.")
-                3 -> PlaceholderSection("PROFILE", "Tu perfil, tasa horaria y ajustes aparecerán aquí.")
+                1 -> ScheduleSection(uiState)
+                2 -> HistorySection()
+                3 -> ProfileSection(uiState)
             }
 
             Spacer(modifier = Modifier.height(24.dp)) // Espacio para el bottom nav
@@ -178,7 +181,22 @@ private fun TasksSection(
             ) {
                 Text("Today's Assigned Tasks", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Gray900)
                 Spacer(modifier = Modifier.weight(1f))
-                Text("$completedCount of $totalCount Completed", style = MaterialTheme.typography.labelSmall, color = Emerald600, fontWeight = FontWeight.SemiBold)
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Emerald50)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Filled.Verified,
+                        contentDescription = null,
+                        tint = Emerald600,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("$completedCount of $totalCount Completed", style = MaterialTheme.typography.labelSmall, color = Emerald600, fontWeight = FontWeight.Bold)
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -279,40 +297,177 @@ private fun TasksSection(
 }
 
 @Composable
-private fun PlaceholderSection(title: String, message: String) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = White)
+fun ScheduleSection(uiState: WorkerDashboardUiState) {
+    val shifts = listOf(
+        Triple("Lun 06 - Vie 10 Oct", "07:00 - 15:30", "Turno A • ${uiState.facility.ifBlank { "Main Facility" }}"),
+        Triple("Sáb 11 Oct", "08:00 - 12:00", "Medio turno • mantenimiento"),
+        Triple("Lun 13 - Vie 17 Oct", "07:00 - 15:30", "Turno A • confirmado")
+    )
+
+    SectionScaffold(
+        icon = Icons.Filled.CalendarMonth,
+        title = "Schedule",
+        subtitle = "Próximos turnos asignados",
+        accent = Color(0xFF3B82F6)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                Icons.Filled.Info,
-                contentDescription = null,
-                tint = Gray400,
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Gray900
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Gray500,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+        shifts.forEach { (days, hours, note) ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = White)
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconBadge(
+                        icon = Icons.Filled.Event,
+                        tint = Color(0xFF3B82F6),
+                        size = 34.dp,
+                        iconSize = 16.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(days, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Gray900)
+                        Text(note, style = MaterialTheme.typography.bodySmall, color = Gray500)
+                    }
+                    Text(hours, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
         }
+    }
+}
+
+@Composable
+fun HistorySection() {
+    val week = Triple("40h 15m", "$642.50", "5 de 5 turnos")
+
+    SectionScaffold(
+        icon = Icons.Filled.History,
+        title = "History",
+        subtitle = "Horas y turnos registrados",
+        accent = Emerald600
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            MiniStat(label = "Semana 41", value = week.first, modifier = Modifier.weight(1f))
+            MiniStat(label = "Devengado", value = week.second, modifier = Modifier.weight(1f))
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = White)
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconBadge(
+                    icon = Icons.Filled.FactCheck,
+                    tint = Emerald600,
+                    size = 34.dp,
+                    iconSize = 16.dp
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Última semana", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Gray900)
+                    Text("Firmado y sincronizado con Firebase", style = MaterialTheme.typography.bodySmall, color = Gray500)
+                }
+                Text(week.third, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Emerald600)
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileSection(uiState: WorkerDashboardUiState) {
+    val name = uiState.workerName.ifBlank { "Trabajador" }
+
+    SectionScaffold(
+        icon = Icons.Filled.Person,
+        title = "Profile",
+        subtitle = "Datos del trabajador",
+        accent = Color(0xFF7C3AED)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = White)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(Emerald500, Emerald500.copy(alpha = 0.6f))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = name.split(" ").mapNotNull { it.firstOrNull() }.take(2).joinToString("").uppercase(),
+                        color = White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Gray900)
+                Text(uiState.facility.ifBlank { "Main Facility" }, style = MaterialTheme.typography.bodySmall, color = Gray500)
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    MiniStat(label = "Objetivo turno", value = uiState.targetTime, modifier = Modifier.weight(1f))
+                    MiniStat(label = "Inicio", value = uiState.startTime, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+/** Contenedor de sección con badge de icono, título y contenido. */
+@Composable
+private fun SectionScaffold(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    accent: Color,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(icon = icon, tint = accent, size = 36.dp, iconSize = 18.dp)
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Gray900)
+                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = Gray500)
+            }
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        content()
+    }
+}
+
+@Composable
+private fun MiniStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Gray100)
+            .padding(12.dp)
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Gray500, fontSize = 11.sp)
+        Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Gray900, fontSize = 16.sp)
     }
 }

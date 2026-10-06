@@ -2,7 +2,9 @@ package com.example.ctpa.ui.components
 
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -38,13 +40,14 @@ fun OvertimeAlertCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Filled.Warning,
-                    contentDescription = null,
+                CircleIconBadge(
+                    icon = Icons.Filled.Warning,
                     tint = Red500,
-                    modifier = Modifier.size(20.dp)
+                    containerColor = White,
+                    size = 34.dp,
+                    iconSize = 18.dp
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "OVERTIME ALERT",
                     style = MaterialTheme.typography.labelLarge,
@@ -62,23 +65,55 @@ fun OvertimeAlertCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Nombre y delay
-            Text(
-                text = alert.workerName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Gray900
-            )
-            Text(
-                text = "Delay: 00:${String.format("%02d", alert.overtimeMinutes)}:42 over 8h limit",
-                style = MaterialTheme.typography.bodySmall,
-                color = Red500,
-                modifier = Modifier.padding(top = 2.dp)
-            )
+            // Nombre, identidad y retardo
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(Red500),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = alert.workerName.split(" ")
+                            .mapNotNull { it.firstOrNull() }
+                            .take(2)
+                            .joinToString("")
+                            .uppercase(),
+                        color = White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = alert.workerName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Gray900
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.Schedule,
+                            contentDescription = null,
+                            tint = Red500,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Delay: 00:${String.format("%02d", alert.overtimeMinutes)}:42 over 8h limit",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Red500,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botones de acción
+            // Botones de acción (2 + 1 para no aplastar las etiquetas)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -88,11 +123,12 @@ fun OvertimeAlertCard(
                     onClick = onApprove,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Emerald500)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Emerald500),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Emerald500.copy(alpha = 0.5f))
                 ) {
-                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Approve", fontSize = 12.sp)
+                    Text("Approve", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
                 // Reject
@@ -100,24 +136,27 @@ fun OvertimeAlertCard(
                     onClick = onReject,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Gray500)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Gray500),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Gray300)
                 ) {
                     Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Reject", fontSize = 12.sp)
+                    Text("Reject", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
+            }
 
-                // Force Clock-Out
-                Button(
-                    onClick = onForceClockOut,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Red500)
-                ) {
-                    Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Force Clock-Out", fontSize = 12.sp)
-                }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Force Clock-Out (ancho completo, acción destructiva)
+            Button(
+                onClick = onForceClockOut,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Red500)
+            ) {
+                Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Force Clock-Out", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

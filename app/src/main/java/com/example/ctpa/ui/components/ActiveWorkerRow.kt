@@ -2,6 +2,7 @@ package com.example.ctpa.ui.components
 
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -13,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,39 +44,51 @@ fun ActiveWorkerRow(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar con indicador de estado
-            Box {
+            // Avatar con degradado, anillo de estado e indicador pulsante
+            val statusColor = when (worker.status) {
+                WorkerStatus.ACTIVE -> Emerald500
+                WorkerStatus.ON_BREAK -> Color(0xFFF59E0B)
+                WorkerStatus.CLOCKED_OUT -> Gray400
+            }
+            Box(modifier = Modifier.size(48.dp)) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
+                        .shadow(3.dp, CircleShape, clip = false)
                         .clip(CircleShape)
-                        .background(Gray200),
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    statusColor.copy(alpha = 0.95f),
+                                    statusColor.copy(alpha = 0.60f)
+                                )
+                            )
+                        )
+                        .border(2.dp, White, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = worker.workerName.split(" ").map { it.first() }.joinToString(""),
+                        text = worker.workerName.split(" ")
+                            .mapNotNull { it.firstOrNull() }
+                            .take(2)
+                            .joinToString("")
+                            .uppercase(),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Gray700
+                        color = White,
+                        letterSpacing = 1.sp
                     )
                 }
-                // Indicador de estado
+                // Anillo exterior del estado
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .size(12.dp)
+                        .size(14.dp)
                         .clip(CircleShape)
-                        .background(
-                            when (worker.status) {
-                                WorkerStatus.ACTIVE -> Emerald500
-                                WorkerStatus.ON_BREAK -> Color(0xFFF59E0B) // Amber
-                                WorkerStatus.CLOCKED_OUT -> Gray400
-                            }
-                        )
-                        .background(
-                            shape = CircleShape,
-                            color = Color.Transparent
-                        )
+                        .background(White)
+                        .padding(2.dp)
+                        .clip(CircleShape)
+                        .background(statusColor)
                 )
             }
 
@@ -141,19 +156,31 @@ fun ActiveWorkerRow(
 
 @Composable
 private fun StatusBadge(status: WorkerStatus) {
-    // ✅ CORRECCIÓN: Usar Triple en lugar de "to" anidado
-    val (text, color, bgColor) = when (status) {
-        WorkerStatus.ACTIVE -> Triple("Active", Emerald600, Emerald50)
-        WorkerStatus.ON_BREAK -> Triple("On Break", Color(0xFFD97706), Color(0xFFFEF3C7))
-        WorkerStatus.CLOCKED_OUT -> Triple("Clocked Out", Gray500, Gray100)
+    // Triple: texto, color de texto y color de fondo
+    val (text, color, bgColor, icon) = when (status) {
+        WorkerStatus.ACTIVE ->
+            StatusChipData("Active", Emerald600, Emerald50, Icons.Filled.PlayCircle)
+        WorkerStatus.ON_BREAK ->
+            StatusChipData("On Break", Color(0xFFD97706), Color(0xFFFEF3C7), Icons.Filled.Coffee)
+        WorkerStatus.CLOCKED_OUT ->
+            StatusChipData("Clocked Out", Gray500, Gray100, Icons.Filled.PowerSettingsNew)
     }
 
-    Box(
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
             .background(bgColor)
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .border(1.dp, color.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(11.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
@@ -163,6 +190,13 @@ private fun StatusBadge(status: WorkerStatus) {
         )
     }
 }
+
+private data class StatusChipData(
+    val text: String,
+    val color: Color,
+    val background: Color,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
 
 private fun formatMinutesToHours(minutes: Int): String {
     val hours = minutes / 60

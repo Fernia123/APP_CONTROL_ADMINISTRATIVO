@@ -183,13 +183,19 @@ fun AdminDashboardContent(
                     KpiCard(
                         label = "Total Active Workers",
                         value = "${uiState.stats.totalActiveWorkers}",
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Filled.Groups,
+                        accent = Emerald500,
+                        detail = "${uiState.activeWorkers.size} en turno ahora"
                     )
                     KpiCard(
                         label = "Total Payroll Today",
                         value = "$${String.format("%.2f", uiState.stats.totalPayrollToday)}",
                         modifier = Modifier.weight(1f),
-                        valueColor = Emerald600
+                        valueColor = Emerald600,
+                        icon = Icons.Filled.Payments,
+                        accent = Emerald600,
+                        detail = "Acumulado del día"
                     )
                 }
 
@@ -202,12 +208,18 @@ fun AdminDashboardContent(
                     KpiCard(
                         label = "Total Hours Logged",
                         value = "${String.format("%.2f", uiState.stats.totalHoursLogged)} hrs",
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Filled.HourglassBottom,
+                        accent = Color(0xFF3B82F6),
+                        detail = "Sincronizado con Firebase"
                     )
                     KpiCard(
                         label = "Avg Rate",
                         value = "$${String.format("%.2f", uiState.stats.avgRate)}",
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Filled.CurrencyExchange,
+                        accent = Color(0xFF3B82F6),
+                        detail = "Por hora / trabajador"
                     )
                 }
 
@@ -221,13 +233,19 @@ fun AdminDashboardContent(
                         label = "Overtime",
                         value = uiState.stats.overtime,
                         modifier = Modifier.weight(1f),
-                        valueColor = Color(0xFFF59E0B)
+                        valueColor = Color(0xFFF59E0B),
+                        icon = Icons.Filled.MoreTime,
+                        accent = Color(0xFFF59E0B),
+                        detail = if (uiState.overtimeAlerts.isNotEmpty()) "${uiState.overtimeAlerts.size} alerta(s) activa(s)" else "Sin excesos hoy"
                     )
                     KpiCard(
                         label = "Pending Approvals",
                         value = "${uiState.stats.pendingApprovals}",
                         modifier = Modifier.weight(1f),
-                        valueColor = Red500
+                        valueColor = Red500,
+                        icon = Icons.Filled.PendingActions,
+                        accent = Red500,
+                        detail = if (uiState.stats.pendingApprovals > 0) "Requiere revisión" else "Todo al día"
                     )
                 }
             }
