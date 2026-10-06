@@ -35,7 +35,7 @@ fun WorkerCard(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 2.dp else 0.dp)
     ) {
         Row(
@@ -66,7 +66,7 @@ fun WorkerCard(
                             .size(14.dp)
                             .clip(CircleShape)
                             .background(Emerald500)
-                            .border(2.dp, White, CircleShape)
+                            .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
                     )
                 }
             }

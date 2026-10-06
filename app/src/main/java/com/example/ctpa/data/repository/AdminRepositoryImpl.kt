@@ -13,7 +13,9 @@ import com.example.ctpa.domain.model.Worker
 import com.example.ctpa.domain.model.WorkerDetail
 import com.example.ctpa.domain.model.WorkerStatus
 import com.example.ctpa.domain.repository.AdminRepository
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -246,6 +248,25 @@ class AdminRepositoryImpl @Inject constructor(
             .document(taskId)
             .update("status", PendingTaskStatus.COMPLETED.name)
             .await()
+    }
+
+    override suspend fun getAllPendingTasks(): Flow<List<PendingTask>> = callbackFlow {
+        val registration = firestore.collection("pending_tasks")
+            .whereEqualTo("status", PendingTaskStatus.PENDING.name)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                val tasks = snapshot?.documents
+                    ?.mapNotNull { doc ->
+                        doc.toObject(PendingTask::class.java)?.copy(id = doc.id)
+                    }
+                    ?.sortedBy { it.deadline }
+                    ?: emptyList()
+                trySend(tasks)
+            }
+        awaitClose { registration.remove() }
     }
 
     override suspend fun getOvertimeAlerts(): Flow<List<AttendanceRecord>> = flow {

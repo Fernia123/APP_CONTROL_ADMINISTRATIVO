@@ -35,7 +35,7 @@ fun ActiveWorkerRow(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
@@ -64,7 +64,7 @@ fun ActiveWorkerRow(
                                 )
                             )
                         )
-                        .border(2.dp, White, CircleShape),
+                        .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -85,7 +85,7 @@ fun ActiveWorkerRow(
                         .align(Alignment.BottomEnd)
                         .size(14.dp)
                         .clip(CircleShape)
-                        .background(White)
+                        .background(MaterialTheme.colorScheme.surface)
                         .padding(2.dp)
                         .clip(CircleShape)
                         .background(statusColor)
@@ -161,7 +161,7 @@ private fun StatusBadge(status: WorkerStatus) {
         WorkerStatus.ACTIVE ->
             StatusChipData("Active", Emerald600, Emerald50, Icons.Filled.PlayCircle)
         WorkerStatus.ON_BREAK ->
-            StatusChipData("On Break", Color(0xFFD97706), Color(0xFFFEF3C7), Icons.Filled.Coffee)
+            StatusChipData("On Break", Color(0xFFD97706), Amber50, Icons.Filled.Coffee)
         WorkerStatus.CLOCKED_OUT ->
             StatusChipData("Clocked Out", Gray500, Gray100, Icons.Filled.PowerSettingsNew)
     }

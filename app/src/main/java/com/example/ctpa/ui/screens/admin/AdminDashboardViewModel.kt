@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ctpa.domain.model.AdminStats
 import com.example.ctpa.domain.model.AttendanceRecord
+import com.example.ctpa.domain.model.PendingTask
 import com.example.ctpa.domain.model.Worker
 import com.example.ctpa.domain.model.WorkerDetail
 import com.example.ctpa.domain.repository.AdminRepository
@@ -19,6 +20,7 @@ data class AdminDashboardUiState(
     val stats: AdminStats = AdminStats(),
     val activeWorkers: List<AttendanceRecord> = emptyList(),
     val workers: List<Worker> = emptyList(),
+    val pendingTasks: List<PendingTask> = emptyList(),
     val overtimeAlerts: List<AttendanceRecord> = emptyList(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null,

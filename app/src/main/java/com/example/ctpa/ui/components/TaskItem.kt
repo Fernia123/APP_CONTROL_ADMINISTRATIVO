@@ -55,7 +55,7 @@ fun TaskItem(task: Task, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
@@ -255,6 +255,7 @@ private fun statusIcon(status: TaskStatus): ImageVector = when (status) {
     TaskStatus.DONE -> Icons.Filled.DoneAll
 }
 
+@Composable
 private fun statusColor(status: TaskStatus): Color = when (status) {
     TaskStatus.ACTIVE -> Emerald500
     TaskStatus.IN_PROGRESS -> Color(0xFFF59E0B)

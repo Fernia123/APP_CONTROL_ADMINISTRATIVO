@@ -31,7 +31,7 @@ fun OvertimeAlertCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)), // Rojo muy claro
+        colors = CardDefaults.cardColors(containerColor = Red50), // Rojo tintado (se adapta al tema)
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -43,7 +43,7 @@ fun OvertimeAlertCard(
                 CircleIconBadge(
                     icon = Icons.Filled.Warning,
                     tint = Red500,
-                    containerColor = White,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     size = 34.dp,
                     iconSize = 18.dp
                 )

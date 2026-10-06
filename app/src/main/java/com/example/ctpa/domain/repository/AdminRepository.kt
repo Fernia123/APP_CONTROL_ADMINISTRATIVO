@@ -36,6 +36,9 @@ interface AdminRepository {
     // Complea una tarea pendiente
     suspend fun completePendingTask(workerId: String, taskId: String)
 
+    // Todos los pendientes registrados (para el panel del admin)
+    suspend fun getAllPendingTasks(): Flow<List<PendingTask>>
+
     // Alertas de overtime pendientes
     suspend fun getOvertimeAlerts(): Flow<List<AttendanceRecord>>
 

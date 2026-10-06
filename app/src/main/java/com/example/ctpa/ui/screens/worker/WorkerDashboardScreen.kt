@@ -31,10 +31,12 @@ import androidx.compose.foundation.layout.ColumnScope
 fun WorkerDashboardScreen(
     workerId: String,
     onBack: () -> Unit,
-    viewModel: WorkerDashboardViewModel = hiltViewModel()
+    viewModel: WorkerDashboardViewModel = hiltViewModel(),
+    themeViewModel: ThemeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val timeFormatted = viewModel.formatTime(uiState.elapsedSeconds)
+    val isDark = themeViewModel.isDarkMode()
 
     Scaffold(
         topBar = {
@@ -46,6 +48,13 @@ fun WorkerDashboardScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { themeViewModel.toggle(isDark) }) {
+                        Icon(
+                            imageVector = if (isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                            contentDescription = if (isDark) "Modo claro" else "Modo oscuro",
+                            tint = Gray700
+                        )
+                    }
                     Text("Active Tasks Dashboard", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 },
                 navigationIcon = {
@@ -57,7 +66,7 @@ fun WorkerDashboardScreen(
         },
         bottomBar = {
             // Bottom Navigation
-            NavigationBar(containerColor = White) {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 NavigationBarItem(
                     icon = { Icon(Icons.Filled.List, contentDescription = null) },
                     label = { Text("Tasks") },
@@ -96,7 +105,11 @@ fun WorkerDashboardScreen(
                 0 -> TasksSection(viewModel, uiState, timeFormatted)
                 1 -> ScheduleSection(uiState)
                 2 -> HistorySection()
-                3 -> ProfileSection(uiState)
+                3 -> ProfileSection(
+                    uiState,
+                    isDark = isDark,
+                    onDarkModeChange = themeViewModel::setDarkMode
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp)) // Espacio para el bottom nav
@@ -132,7 +145,7 @@ private fun TasksSection(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)) // Verde muy claro
+            colors = CardDefaults.cardColors(containerColor = Emerald50) // Verde muy claro
         ) {
             Row(
                 modifier = Modifier.padding(12.dp),
@@ -157,7 +170,7 @@ private fun TasksSection(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5))
+                colors = CardDefaults.cardColors(containerColor = Emerald50)
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
@@ -219,7 +232,7 @@ private fun TasksSection(
                         label = { Text(tab, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                         modifier = Modifier.weight(1f),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = White,
+                            selectedContainerColor = MaterialTheme.colorScheme.surface,
                             containerColor = Color.Transparent
                         )
                     )
@@ -239,7 +252,7 @@ private fun TasksSection(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = White)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Box(
                         modifier = Modifier
@@ -314,7 +327,7 @@ fun ScheduleSection(uiState: WorkerDashboardUiState) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = White)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Row(
                     modifier = Modifier.padding(14.dp),
@@ -360,7 +373,7 @@ fun HistorySection() {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = White)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Row(
                 modifier = Modifier.padding(14.dp),
@@ -384,7 +397,11 @@ fun HistorySection() {
 }
 
 @Composable
-fun ProfileSection(uiState: WorkerDashboardUiState) {
+fun ProfileSection(
+    uiState: WorkerDashboardUiState,
+    isDark: Boolean = false,
+    onDarkModeChange: ((Boolean) -> Unit)? = null
+) {
     val name = uiState.workerName.ifBlank { "Trabajador" }
 
     SectionScaffold(
@@ -396,7 +413,7 @@ fun ProfileSection(uiState: WorkerDashboardUiState) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = White)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(18.dp),
@@ -430,6 +447,44 @@ fun ProfileSection(uiState: WorkerDashboardUiState) {
                 ) {
                     MiniStat(label = "Objetivo turno", value = uiState.targetTime, modifier = Modifier.weight(1f))
                     MiniStat(label = "Inicio", value = uiState.startTime, modifier = Modifier.weight(1f))
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Interruptor de modo oscuro
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Gray100)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconBadge(
+                        icon = if (isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                        tint = Color(0xFF7C3AED),
+                        size = 34.dp,
+                        iconSize = 16.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Modo oscuro",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Gray900
+                        )
+                        Text(
+                            text = if (isDark) "Tema oscuro activo" else "Tema claro activo",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Gray500
+                        )
+                    }
+                    Switch(
+                        checked = isDark,
+                        onCheckedChange = { onDarkModeChange?.invoke(it) },
+                        colors = SwitchDefaults.colors(checkedTrackColor = Emerald500)
+                    )
                 }
             }
         }

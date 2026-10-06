@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.sp
 import com.example.ctpa.ui.theme.Emerald50
 import com.example.ctpa.ui.theme.Emerald500
 import com.example.ctpa.ui.theme.Emerald600
+import com.example.ctpa.ui.theme.Gray200
+import com.example.ctpa.ui.theme.Gray50
 import com.example.ctpa.ui.theme.Gray500
 import com.example.ctpa.ui.theme.Gray700
 import com.example.ctpa.ui.theme.Gray900
@@ -70,7 +72,7 @@ fun TimerCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -227,7 +229,7 @@ fun TimerCard(
                 CircleIconBadge(
                     icon = Icons.Filled.LocationOn,
                     tint = Emerald500,
-                    containerColor = White,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     size = 32.dp,
                     iconSize = 16.dp
                 )
@@ -279,8 +281,8 @@ private fun TimeChip(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFFF9FAFB))
-            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(10.dp))
+            .background(Gray50)
+            .border(1.dp, Gray200, RoundedCornerShape(10.dp))
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

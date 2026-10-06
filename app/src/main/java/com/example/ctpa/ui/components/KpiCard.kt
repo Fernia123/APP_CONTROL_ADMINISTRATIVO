@@ -38,7 +38,7 @@ fun KpiCard(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(White)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         // Barra de acento superior con degradado
         Box(

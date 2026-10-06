@@ -10,7 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.graphics.PixelMap
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
@@ -21,9 +23,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.ctpa.domain.model.AdminStats
 import com.example.ctpa.domain.model.AttendanceRecord
+import com.example.ctpa.domain.model.PendingTask
 import com.example.ctpa.domain.model.Task
 import com.example.ctpa.domain.model.TaskStatus
 import com.example.ctpa.domain.model.Worker
+import com.example.ctpa.domain.model.WorkerDetail
 import com.example.ctpa.domain.model.WorkerStatus
 import com.example.ctpa.ui.components.GpsRadar
 import com.example.ctpa.ui.components.TaskItem
@@ -34,6 +38,7 @@ import com.example.ctpa.ui.screens.worker.HistorySection
 import com.example.ctpa.ui.screens.worker.ProfileSection
 import com.example.ctpa.ui.screens.worker.ScheduleSection
 import com.example.ctpa.ui.screens.worker.WorkerDashboardUiState
+import com.example.ctpa.ui.theme.CTPATheme
 import com.example.ctpa.ui.theme.Gray50
 import org.junit.Rule
 import org.junit.Test
@@ -59,7 +64,16 @@ class ScreenshotCaptureTest {
 
     private fun shot(name: String) {
         advance()
-        val pixelMap = compose.onRoot().captureToImage().toPixelMap()
+        saveShot(compose.onRoot().captureToImage().toPixelMap(), name)
+    }
+
+    /** Captura la ventana de diálogo (hay dos raíces cuando hay un Dialog abierto). */
+    private fun shotDialog(name: String) {
+        advance()
+        saveShot(compose.onNode(isDialog()).captureToImage().toPixelMap(), name)
+    }
+
+    private fun saveShot(pixelMap: PixelMap, name: String) {
         val bitmap = Bitmap.createBitmap(pixelMap.width, pixelMap.height, Bitmap.Config.ARGB_8888)
         for (y in 0 until pixelMap.height) {
             for (x in 0 until pixelMap.width) {
@@ -77,7 +91,7 @@ class ScreenshotCaptureTest {
     @Test
     fun adminDashboard() {
         compose.setContent {
-            MaterialTheme {
+            CTPATheme(isDark = false) {
                 Surface(color = Gray50) {
                     AdminDashboardContent(uiState = adminState())
                 }
@@ -102,7 +116,7 @@ class ScreenshotCaptureTest {
     @Test
     fun workerShiftAndTasks() {
         compose.setContent {
-            MaterialTheme {
+            CTPATheme(isDark = false) {
                 Surface(color = Gray50) {
                     Column {
                         TimerCard(
@@ -139,7 +153,7 @@ class ScreenshotCaptureTest {
             targetTime = "8h 00m"
         )
         compose.setContent {
-            MaterialTheme {
+            CTPATheme(isDark = false) {
                 Surface(color = Gray50) {
                     Column {
                         ScheduleSection(state)
@@ -157,7 +171,7 @@ class ScreenshotCaptureTest {
     @Test
     fun radarAlone() {
         compose.setContent {
-            MaterialTheme {
+            CTPATheme(isDark = false) {
                 Surface(color = Gray50) {
                     Column(modifier = Modifier.height(420.dp)) {
                         GpsRadar(modifier = Modifier.height(400.dp))
@@ -167,6 +181,175 @@ class ScreenshotCaptureTest {
         }
         shot("worker-03-radar")
     }
+
+    // ===== VENTANAS EMERGENTES (claro + oscuro) =====
+
+    @Test
+    fun dialogAddPendingLight() {
+        compose.setContent {
+            CTPATheme(isDark = false) {
+                Surface(color = Gray50) {
+                    AdminDashboardContent(
+                        uiState = adminState().copy(showAddPendingDialog = true)
+                    )
+                }
+            }
+        }
+        shotDialog("dialog-01-pending-light")
+    }
+
+    @Test
+    fun dialogAddPendingDark() {
+        compose.setContent {
+            CTPATheme(isDark = true) {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AdminDashboardContent(
+                        uiState = adminState().copy(showAddPendingDialog = true)
+                    )
+                }
+            }
+        }
+        shotDialog("dialog-02-pending-dark")
+    }
+
+    @Test
+    fun dialogAddWorkerDark() {
+        compose.setContent {
+            CTPATheme(isDark = true) {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AdminDashboardContent(
+                        uiState = adminState().copy(showAddWorkerDialog = true)
+                    )
+                }
+            }
+        }
+        shotDialog("dialog-03-addworker-dark")
+    }
+
+    @Test
+    fun dialogWorkerDetailDark() {
+        compose.setContent {
+            CTPATheme(isDark = true) {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AdminDashboardContent(
+                        uiState = adminState().copy(
+                            selectedWorkerDetail = workerDetail(),
+                            showWorkerDetail = true
+                        )
+                    )
+                }
+            }
+        }
+        shotDialog("dialog-04-detail-dark")
+    }
+
+    // ===== MODO OSCURO =====
+
+    @Test
+    fun darkModeAdminDashboard() {
+        compose.setContent {
+            CTPATheme(isDark = true) {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AdminDashboardContent(uiState = adminState())
+                }
+            }
+        }
+        shot("dark-01-admin-top")
+
+        compose.onRoot().performTouchInput {
+            swipe(
+                start = Offset(width / 2f, height * 0.80f),
+                end = Offset(width / 2f, height * 0.52f),
+                durationMillis = 300
+            )
+        }
+        shot("dark-02-admin-alerts")
+    }
+
+    @Test
+    fun darkModeWorkerSections() {
+        val state = WorkerDashboardUiState(
+            workerName = "Carlos Rodriguez",
+            facility = "Sector 7 Plant",
+            startTime = "07:04 AM",
+            targetTime = "8h 00m"
+        )
+        compose.setContent {
+            CTPATheme(isDark = true) {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    Column {
+                        ScheduleSection(state)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HistorySection()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        ProfileSection(state, isDark = true)
+                    }
+                }
+            }
+        }
+        shot("dark-03-worker-sections")
+    }
+
+    @Test
+    fun darkModeTimerAndTasks() {
+        compose.setContent {
+            CTPATheme(isDark = true) {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    Column {
+                        TimerCard(
+                            timeElapsed = "03:42:15",
+                            startTime = "07:04 AM",
+                            targetTime = "8h 00m",
+                            isOnBreak = false,
+                            onTakeBreak = {},
+                            facilityName = "Sector 7B - Brake Pads"
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Column(modifier = Modifier.height(560.dp)) {
+                            TaskItem(task = sampleTask(TaskStatus.ACTIVE, "Inspección de frenos", "Revisar pastillas y discos"))
+                            Spacer(modifier = Modifier.height(10.dp))
+                            TaskItem(task = sampleTask(TaskStatus.IN_PROGRESS, "Cambio de rodamientos", "Línea de ensamble 3", elapsed = 95, estimated = 150))
+                            Spacer(modifier = Modifier.height(10.dp))
+                            TaskItem(task = sampleTask(TaskStatus.COMPLETED, "Sellado de empaques", "Turno matutino", signed = true))
+                        }
+                    }
+                }
+            }
+        }
+        shot("dark-04-timer-tasks")
+    }
+
+    private fun workerDetail() = WorkerDetail(
+        worker = Worker(
+            id = "087",
+            docId = "worker_104",
+            name = "Mario Silva",
+            hourlyRate = 14.5,
+            isActive = true,
+            facility = "Sector 7B - Brake Pads",
+            photoUrl = ""
+        ),
+        inProgressTasks = listOf(
+            sampleTask(TaskStatus.IN_PROGRESS, "Cambio de rodamientos", "Línea de ensamble 3", elapsed = 95, estimated = 150)
+        ),
+        pendingTasks = listOf(
+            PendingTask(
+                id = "p1",
+                workerId = "087",
+                title = "Inspección de frenos",
+                description = "Revisar pastillas y discos del eje delantero",
+                deadline = System.currentTimeMillis() + 86_400_000L
+            ),
+            PendingTask(
+                id = "p2",
+                workerId = "087",
+                title = "Reporte de calidad semanal",
+                description = "",
+                deadline = System.currentTimeMillis() - 3_600_000L
+            )
+        ),
+        overdueCount = 1
+    )
 
     private fun adminState() = AdminDashboardUiState(
         stats = AdminStats(

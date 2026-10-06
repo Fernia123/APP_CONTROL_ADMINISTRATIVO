@@ -19,9 +19,8 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun getWorkers(): Flow<List<Worker>> = flow {
         try {
-            // Obtener trabajadores activos de Firestore
+            // Obtener todos los trabajadores registrados en Firestore
             val snapshot = firestore.collection("workers")
-                .whereEqualTo("isActive", true)
                 .get()
                 .await()
 

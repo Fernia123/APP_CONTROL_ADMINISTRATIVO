@@ -2,6 +2,8 @@ package com.example.ctpa.ui.screens.admin
 
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,6 +39,7 @@ import java.util.Locale
 @Composable
 fun AdminDashboardScreen(
     viewModel: AdminDashboardViewModel = hiltViewModel(),
+    themeViewModel: ThemeViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -44,6 +47,8 @@ fun AdminDashboardScreen(
     AdminDashboardContent(
         uiState = uiState,
         onBack = onBack,
+        isDark = themeViewModel.isDarkMode(),
+        onToggleDark = themeViewModel::setDarkMode,
         onWorkerSelected = viewModel::onWorkerSelected,
         onHideWorkerDetail = viewModel::hideWorkerDetail,
         onShowAddPending = viewModel::showAddPendingDialog,
@@ -65,6 +70,8 @@ fun AdminDashboardScreen(
 fun AdminDashboardContent(
     uiState: AdminDashboardUiState,
     onBack: () -> Unit = {},
+    isDark: Boolean = false,
+    onToggleDark: ((Boolean) -> Unit)? = null,
     onWorkerSelected: (String) -> Unit = {},
     onHideWorkerDetail: () -> Unit = {},
     onShowAddPending: () -> Unit = {},
@@ -103,7 +110,16 @@ fun AdminDashboardContent(
                         fontWeight = FontWeight.SemiBold,
                         color = Gray900
                     )
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    // Interruptor de modo oscuro
+                    IconButton(onClick = { onToggleDark?.invoke(!isDark) }) {
+                        Icon(
+                            imageVector = if (isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                            contentDescription = if (isDark) "Modo claro" else "Modo oscuro",
+                            tint = Gray700
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -154,7 +170,7 @@ fun AdminDashboardContent(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5))
+                    colors = CardDefaults.cardColors(containerColor = Emerald50)
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
@@ -281,7 +297,7 @@ fun AdminDashboardContent(
                     .padding(horizontal = 20.dp)
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Emerald700)
+                colors = ButtonDefaults.buttonColors(containerColor = Emerald700Container)
             ) {
                 Icon(Icons.Filled.PersonAdd, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -346,7 +362,7 @@ fun AdminDashboardContent(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = White)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Text(
                             text = "No active workers",
@@ -418,6 +434,7 @@ fun AddPendingTaskDialog(
     onSave: (workerId: String, title: String, description: String, deadline: Long) -> Unit
 ) {
     val availableWorkers = workers.filter { it.isActive }
+
     var selectedWorkerId by remember {
         mutableStateOf(
             defaultWorkerId.ifEmpty { availableWorkers.firstOrNull()?.docId ?: "" }
@@ -433,137 +450,130 @@ fun AddPendingTaskDialog(
     val deadlineText = deadline?.let { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(it)) }
         ?: "Seleccionar fecha"
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Nueva Actividad Pendiente", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
+    AppDialog(
+        onDismiss = onDismiss,
+        icon = Icons.Filled.AddTask,
+        accent = Emerald500,
+        title = "Nueva actividad pendiente",
+        subtitle = "Asigna una tarea con fecha límite",
+        confirmLabel = "Guardar",
+        confirmIcon = Icons.Filled.Save,
+        onConfirm = {
+            when {
+                selectedWorkerId.isEmpty() -> errorText = "Selecciona un trabajador."
+                title.isBlank() -> errorText = "Escribe el título de la actividad."
+                deadline == null -> errorText = "Selecciona la fecha máxima de realización."
+                else -> onSave(selectedWorkerId, title.trim(), description.trim(), deadline!!)
+            }
+        },
+        contentMaxHeight = 460.dp
+    ) {
+        // Selector de trabajador
+        ExposedDropdownMenuBox(
+            expanded = workerMenuExpanded,
+            onExpandedChange = { workerMenuExpanded = !workerMenuExpanded }
+        ) {
+            OutlinedTextField(
+                value = availableWorkers.firstOrNull { it.docId == selectedWorkerId }?.name
+                    ?: "Selecciona un trabajador",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Trabajador") },
+                leadingIcon = { Icon(Icons.Filled.Badge, contentDescription = null) },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = workerMenuExpanded)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = workerMenuExpanded,
+                onDismissRequest = { workerMenuExpanded = false }
             ) {
-                // Selector de trabajador
-                ExposedDropdownMenuBox(
-                    expanded = workerMenuExpanded,
-                    onExpandedChange = { workerMenuExpanded = !workerMenuExpanded }
-                ) {
-                    OutlinedTextField(
-                        value = availableWorkers.firstOrNull { it.docId == selectedWorkerId }?.name
-                            ?: "Selecciona un trabajador",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Trabajador") },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = workerMenuExpanded)
+                availableWorkers.forEach { worker ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(worker.name, fontWeight = FontWeight.Medium)
+                                Text(
+                                    "#${worker.id} • ${worker.facility}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Gray500
+                                )
+                            }
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = workerMenuExpanded,
-                        onDismissRequest = { workerMenuExpanded = false }
-                    ) {
-                        availableWorkers.forEach { worker ->
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(worker.name, fontWeight = FontWeight.Medium)
-                                        Text(
-                                            "#${worker.id} • ${worker.facility}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Gray500
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    selectedWorkerId = worker.docId
-                                    workerMenuExpanded = false
-                                }
-                            )
+                        onClick = {
+                            selectedWorkerId = worker.docId
+                            workerMenuExpanded = false
                         }
-                    }
-                }
-
-                // Título
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Título de la actividad") },
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 2
-                )
-
-                // Descripción
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Descripción (opcional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 4
-                )
-
-                // Fecha máxima de realización
-                OutlinedButton(
-                    onClick = { showDatePicker = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        Icons.Filled.Event,
-                        contentDescription = null,
-                        tint = Emerald600,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text(
-                            text = "Día máximo de realización",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Gray500
-                        )
-                        Text(
-                            text = deadlineText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Emerald700
-                        )
-                    }
-                }
-
-                // Error
-                errorText?.let {
-                    Text(
-                        text = it,
-                        color = Red500,
-                        style = MaterialTheme.typography.bodySmall
                     )
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    when {
-                        selectedWorkerId.isEmpty() -> errorText = "Selecciona un trabajador."
-                        title.isBlank() -> errorText = "Escribe el título de la actividad."
-                        deadline == null -> errorText = "Selecciona la fecha máxima de realización."
-                        else -> {
-                            onSave(selectedWorkerId, title.trim(), description.trim(), deadline!!)
-                        }
-                    }
-                }
-            ) {
-                Text("Guardar", fontWeight = FontWeight.Bold, color = Emerald600)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar", color = Gray500)
             }
         }
-    )
+
+        // Título
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("Título de la actividad") },
+            leadingIcon = { Icon(Icons.Filled.EditNote, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 2
+        )
+
+        // Descripción
+        OutlinedTextField(
+            value = description,
+            onValueChange = { description = it },
+            label = { Text("Descripción (opcional)") },
+            leadingIcon = { Icon(Icons.Filled.Notes, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+            maxLines = 4
+        )
+
+        // Fecha máxima de realización (fila con badge)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Emerald50)
+                .border(1.dp, Emerald500.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                .clickable { showDatePicker = true }
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconBadge(
+                icon = Icons.Filled.Event,
+                tint = Emerald600,
+                size = 34.dp,
+                iconSize = 16.dp
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Día máximo de realización",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Gray500
+                )
+                Text(
+                    text = deadlineText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Emerald700
+                )
+            }
+            Icon(
+                imageVector = Icons.Filled.CalendarMonth,
+                contentDescription = null,
+                tint = Emerald600,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        errorText?.let { DialogErrorHint(it) }
+    }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -618,156 +628,158 @@ fun AddWorkerDialog(
     var isActive by remember { mutableStateOf(true) }
     var errorText by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Agregar Nuevo Trabajador", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Nombre") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = id,
-                    onValueChange = { id = it },
-                    label = { Text("ID (ej. 001)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = pin,
-                    onValueChange = { pin = it },
-                    label = { Text("PIN (4 dígitos)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = hourlyRateText,
-                    onValueChange = { hourlyRateText = it },
-                    label = { Text("Tarifa por hora (ej. 14.5)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = maxDailyHoursText,
-                    onValueChange = { maxDailyHoursText = it },
-                    label = { Text("Horas máximas por día (ej. 8)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = facility,
-                    onValueChange = { facility = it },
-                    label = { Text("Facility (ej. Ofician de afuera)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedTextField(
-                        value = shiftStart,
-                        onValueChange = { shiftStart = it },
-                        label = { Text("Inicio (HH:mm)") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = shiftEnd,
-                        onValueChange = { shiftEnd = it },
-                        label = { Text("Fin (HH:mm)") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
+    AppDialog(
+        onDismiss = onDismiss,
+        icon = Icons.Filled.PersonAdd,
+        accent = Color(0xFF3B82F6),
+        title = "Agregar nuevo trabajador",
+        subtitle = "Registro con PIN de 4 dígitos",
+        confirmLabel = "Guardar",
+        confirmIcon = Icons.Filled.Save,
+        onConfirm = {
+            val rate = hourlyRateText.toDoubleOrNull()
+            val hours = maxDailyHoursText.toIntOrNull()
+            when {
+                name.isBlank() -> errorText = "Escribe el nombre del trabajador."
+                id.isBlank() -> errorText = "Escribe el ID del trabajador."
+                pin.length != 4 -> errorText = "El PIN debe tener 4 dígitos."
+                rate == null -> errorText = "Ingresa una tarifa válida."
+                hours == null -> errorText = "Ingresa las horas máximas válidas."
+                facility.isBlank() -> errorText = "Escribe la facility."
+                shiftStart.isBlank() || shiftEnd.isBlank() -> errorText = "Indica inicio y fin del turno."
+                else -> {
+                    onSave(
+                        Worker(
+                            id = id.trim(),
+                            docId = "",
+                            name = name.trim(),
+                            pin = pin,
+                            photoUrl = photoUrl.trim().ifEmpty { "https://via.placeholder.com/150" },
+                            hourlyRate = rate,
+                            maxDailyHours = hours,
+                            isActive = isActive,
+                            shiftStart = shiftStart.trim(),
+                            shiftEnd = shiftEnd.trim(),
+                            facility = facility.trim()
+                        )
                     )
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = photoUrl,
-                        onValueChange = { photoUrl = it },
-                        label = { Text("Foto (URL)") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "Activo",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Gray700
-                        )
-                        Switch(
-                            checked = isActive,
-                            onCheckedChange = { isActive = it },
-                            colors = SwitchDefaults.colors(checkedTrackColor = Emerald500)
-                        )
-                    }
-                }
+            }
+        },
+        contentMaxHeight = 470.dp
+    ) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Nombre") },
+            leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = id,
+                onValueChange = { id = it },
+                label = { Text("ID (ej. 001)") },
+                leadingIcon = { Icon(Icons.Filled.Tag, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = pin,
+                onValueChange = { if (it.length <= 4) pin = it },
+                label = { Text("PIN (4 dígitos)") },
+                leadingIcon = { Icon(Icons.Filled.Password, contentDescription = null) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = hourlyRateText,
+                onValueChange = { hourlyRateText = it },
+                label = { Text("Tarifa/hora (14.5)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = maxDailyHoursText,
+                onValueChange = { maxDailyHoursText = it },
+                label = { Text("Horas máx. (8)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f)
+            )
+        }
+        OutlinedTextField(
+            value = facility,
+            onValueChange = { facility = it },
+            label = { Text("Facility (ej. Oficina de afuera)") },
+            leadingIcon = { Icon(Icons.Filled.Business, contentDescription = null) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = shiftStart,
+                onValueChange = { shiftStart = it },
+                label = { Text("Inicio (HH:mm)") },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = shiftEnd,
+                onValueChange = { shiftEnd = it },
+                label = { Text("Fin (HH:mm)") },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-                errorText?.let {
-                    Text(
-                        text = it,
-                        color = Red500,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val rate = hourlyRateText.toDoubleOrNull()
-                    val hours = maxDailyHoursText.toIntOrNull()
-                    when {
-                        name.isBlank() -> errorText = "Escribe el nombre del trabajador."
-                        id.isBlank() -> errorText = "Escribe el ID del trabajador."
-                        pin.length != 4 -> errorText = "El PIN debe tener 4 dígitos."
-                        rate == null -> errorText = "Ingresa una tarifa válida."
-                        hours == null -> errorText = "Ingresa las horas máximas válidas."
-                        facility.isBlank() -> errorText = "Escribe la facility."
-                        shiftStart.isBlank() || shiftEnd.isBlank() -> errorText = "Indica inicio y fin del turno."
-                        else -> {
-                            onSave(
-                                Worker(
-                                    id = id.trim(),
-                                    docId = "",
-                                    name = name.trim(),
-                                    pin = pin,
-                                    photoUrl = photoUrl.trim().ifEmpty { "https://via.placeholder.com/150" },
-                                    hourlyRate = rate,
-                                    maxDailyHours = hours,
-                                    isActive = isActive,
-                                    shiftStart = shiftStart.trim(),
-                                    shiftEnd = shiftEnd.trim(),
-                                    facility = facility.trim()
-                                )
-                            )
-                        }
-                    }
-                }
-            ) {
-                Text("Guardar", fontWeight = FontWeight.Bold, color = Emerald700)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar", color = Gray500)
+        // Foto + estado con fondo tintado
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Emerald50)
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = photoUrl,
+                onValueChange = { photoUrl = it },
+                label = { Text("Foto (URL)") },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Activo",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Gray700
+                )
+                Switch(
+                    checked = isActive,
+                    onCheckedChange = { isActive = it },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Emerald500)
+                )
             }
         }
-    )
+
+        errorText?.let { DialogErrorHint(it) }
+    }
 }
 
 // ===== DIÁLOGO DETALLE DE TRABAJADOR =====
@@ -780,131 +792,114 @@ fun WorkerDetailDialog(
     val worker = detail.worker
     val now = System.currentTimeMillis()
 
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 600.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = White)
+    AppDialog(
+        onDismiss = onDismiss,
+        icon = Icons.Filled.Badge,
+        accent = Emerald500,
+        title = worker.name,
+        subtitle = "#${worker.id} • ${worker.facility}",
+        contentMaxHeight = 520.dp
+    ) {
+        // Chips con datos clave
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
+            DetailChip(label = "Tasa", value = "$${String.format("%.2f", worker.hourlyRate)}/hr")
+            DetailChip(label = "Turno", value = "${worker.shiftStart} - ${worker.shiftEnd}")
+            DetailChip(label = "Horas", value = "${worker.maxDailyHours}h")
+        }
+
+        if (detail.overdueCount > 0) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Red50)
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Header
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(Emerald500),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = worker.name.split(" ").mapNotNull { it.firstOrNull() }.take(2).joinToString(""),
-                            color = White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = worker.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Gray900
-                        )
-                        Text(
-                            text = "#${worker.id} • ${worker.facility}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Gray500
-                        )
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Filled.Close, contentDescription = "Cerrar", tint = Gray500)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Datos del trabajador
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    DetailChip(label = "Tasa", value = "$${String.format("%.2f", worker.hourlyRate)}/hr")
-                    DetailChip(label = "Turno", value = "${worker.shiftStart} - ${worker.shiftEnd}")
-                    DetailChip(label = "Horas", value = "${worker.maxDailyHours}h")
-                }
-
-                if (detail.overdueCount > 0) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "${detail.overdueCount} pendiente(s) vencido(s) — requiere atención",
-                        color = Red500,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Actividades realizando
-                Text(
-                    text = "Actividades realizando (${detail.inProgressTasks.size})",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Gray900
+                Icon(
+                    imageVector = Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = Red500,
+                    modifier = Modifier.size(16.dp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (detail.inProgressTasks.isEmpty()) {
-                    EmptyHint("Sin actividades en proceso")
-                } else {
-                    detail.inProgressTasks.forEach { task ->
-                        ActivityRow(
-                            title = task.title,
-                            subtitle = "${formatMinutes(task.elapsedMinutes)} / ${formatMinutes(task.estimatedMinutes)}",
-                            type = ActivityType.IN_PROGRESS
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Pendientes
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Pendientes (${detail.pendingTasks.size})",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Gray900
+                    text = "${detail.overdueCount} pendiente(s) vencido(s) — requiere atención",
+                    color = Red500,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (detail.pendingTasks.isEmpty()) {
-                    EmptyHint("Sin pendientes asignados")
-                } else {
-                    detail.pendingTasks.forEach { task ->
-                        PendingTaskRow(
-                            title = task.title,
-                            description = task.description,
-                            deadline = task.deadline,
-                            isOverdue = task.deadline in 1..now,
-                            onComplete = { onCompleteTask(task.id) }
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
+
+        // Sección: en curso
+        DialogSectionHeader(
+            icon = Icons.Filled.DirectionsRun,
+            title = "Actividades realizando (${detail.inProgressTasks.size})",
+            tint = Emerald600
+        )
+
+        if (detail.inProgressTasks.isEmpty()) {
+            EmptyHint("Sin actividades en proceso")
+        } else {
+            detail.inProgressTasks.forEach { task ->
+                ActivityRow(
+                    title = task.title,
+                    subtitle = "${formatMinutes(task.elapsedMinutes)} / ${formatMinutes(task.estimatedMinutes)}",
+                    type = ActivityType.IN_PROGRESS
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+        }
+
+        // Sección: pendientes
+        DialogSectionHeader(
+            icon = Icons.Filled.PendingActions,
+            title = "Pendientes (${detail.pendingTasks.size})",
+            tint = Color(0xFFF59E0B)
+        )
+
+        if (detail.pendingTasks.isEmpty()) {
+            EmptyHint("Sin pendientes asignados")
+        } else {
+            detail.pendingTasks.forEach { task ->
+                PendingTaskRow(
+                    title = task.title,
+                    description = task.description,
+                    deadline = task.deadline,
+                    isOverdue = task.deadline in 1..now,
+                    onComplete = { onCompleteTask(task.id) }
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+        }
+    }
+}
+
+/** Encabezado de sección con icono tintado dentro de los diálogos. */
+@Composable
+private fun DialogSectionHeader(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    tint: Color
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = Gray900
+        )
     }
 }
 
@@ -916,7 +911,7 @@ private fun ActivityRow(title: String, subtitle: String, type: ActivityType) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (type == ActivityType.IN_PROGRESS) Color(0xFFFEF3C7) else Color(0xFFECFDF5)
+            containerColor = if (type == ActivityType.IN_PROGRESS) Amber50 else Emerald50
         ),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
@@ -955,7 +950,7 @@ private fun PendingTaskRow(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isOverdue) Color(0xFFFEE2E2) else Color(0xFFECFDF5)
+            containerColor = if (isOverdue) Red50 else Emerald50
         ),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {

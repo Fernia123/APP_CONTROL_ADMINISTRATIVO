@@ -2,8 +2,11 @@ package com.example.ctpa.ui.screens.login
 
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -14,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -21,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.example.ctpa.domain.model.Worker
 import com.example.ctpa.ui.components.*
 import com.example.ctpa.ui.theme.*
@@ -30,10 +35,17 @@ import com.example.ctpa.ui.theme.*
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
+    themeViewModel: ThemeViewModel = hiltViewModel(),
     onNavigateToAdmin: () -> Unit,
     onNavigateToWorker: (Worker) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(uiState.workers) {
+        if (uiState.selectedWorker == null && uiState.workers.isNotEmpty()) {
+            viewModel.onWorkerSelected(uiState.workers.first())
+        }
+    }
 
     LaunchedEffect(uiState.navigateToAdmin) {
         if (uiState.navigateToAdmin) {
@@ -50,6 +62,8 @@ fun LoginScreen(
 
     LoginScreenContent(
         uiState = uiState,
+        isDark = themeViewModel.isDarkMode(),
+        onToggleDark = themeViewModel::setDarkMode,
         onWorkerSelected = viewModel::onWorkerSelected,
         onPinDigitAdded = viewModel::onPinDigitAdded,
         onPinDigitDeleted = viewModel::onPinDigitDeleted,
@@ -63,6 +77,8 @@ fun LoginScreen(
 @Composable
 fun LoginScreenContent(
     uiState: LoginUiState,
+    isDark: Boolean = false,
+    onToggleDark: ((Boolean) -> Unit)? = null,
     onWorkerSelected: (Worker) -> Unit,
     onPinDigitAdded: (String) -> Unit,
     onPinDigitDeleted: () -> Unit,
@@ -107,6 +123,15 @@ fun LoginScreenContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Interruptor de modo oscuro
+                    IconButton(onClick = { onToggleDark?.invoke(!isDark) }) {
+                        Icon(
+                            imageVector = if (isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                            contentDescription = if (isDark) "Modo claro" else "Modo oscuro",
+                            tint = Gray700,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
@@ -157,23 +182,120 @@ fun LoginScreenContent(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ===== WORKER CARD =====
+            // ===== SELECCIÓN DE PERFIL / TRABAJADORES DISPONIBLES =====
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "TRABAJADORES DISPONIBLES",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Gray700,
+                    letterSpacing = 0.5.sp
+                )
+                Text(
+                    text = "${uiState.workers.size} registrados",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Gray500
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             if (uiState.workers.isNotEmpty()) {
                 val selected = uiState.selectedWorker ?: uiState.workers.first()
+                var workersExpanded by remember { mutableStateOf(true) }
+
                 WorkerCard(
                     worker = selected,
                     isSelected = true,
-                    onClick = {
-                        val index = uiState.workers.indexOf(selected)
-                        val next = uiState.workers[(index + 1) % uiState.workers.size]
-                        onWorkerSelected(next)
-                    }
+                    onClick = { workersExpanded = !workersExpanded }
                 )
+
+                if (workersExpanded) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 260.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            uiState.workers.forEach { worker ->
+                                val isWorkerSelected = worker.docId == selected.docId
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onWorkerSelected(worker) }
+                                        .background(
+                                            if (isWorkerSelected) Emerald50 else Color.Transparent
+                                        )
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AsyncImage(
+                                        model = worker.photoUrl,
+                                        contentDescription = worker.name,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .then(
+                                                if (isWorkerSelected) Modifier.border(
+                                                    2.dp, Emerald500, CircleShape
+                                                ) else Modifier
+                                            ),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = worker.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (isWorkerSelected) FontWeight.Bold
+                                            else FontWeight.Medium,
+                                            color = Gray900
+                                        )
+                                        Text(
+                                            text = "#${worker.id} • ${
+                                                worker.facility.ifEmpty { "Sin facility" }
+                                            }",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Gray500
+                                        )
+                                    }
+                                    if (isWorkerSelected) {
+                                        Icon(
+                                            imageVector = Icons.Filled.CheckCircle,
+                                            contentDescription = "Seleccionado",
+                                            tint = Emerald500,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    } else if (!worker.isActive) {
+                                        Text(
+                                            text = "Inactivo",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Gray400
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             } else {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = White)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Box(
                         modifier = Modifier
@@ -360,7 +482,7 @@ fun LoginScreenContent(
             uiState.errorMessage?.let { error ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
+                    colors = CardDefaults.cardColors(containerColor = Red50),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(

@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -63,7 +64,7 @@ fun PinInput(
                         clip = false
                     )
                     .clip(CircleShape)
-                    .background(if (isFilled) Emerald500 else White)
+                    .background(if (isFilled) Emerald500 else MaterialTheme.colorScheme.surface)
                     .border(
                         width = 2.dp,
                         color = if (isFilled) Emerald500.copy(alpha = 0.35f) else Gray200,
