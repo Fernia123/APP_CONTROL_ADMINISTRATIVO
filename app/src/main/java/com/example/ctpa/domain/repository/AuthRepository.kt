@@ -1,5 +1,6 @@
 package com.example.ctpa.domain.repository
 
+import com.example.ctpa.domain.model.AttendanceRecord
 import com.example.ctpa.domain.model.PendingTask
 import com.example.ctpa.domain.model.Worker
 
@@ -15,6 +16,9 @@ interface AuthRepository {
 
     // Tareas pendientes asignadas a un trabajador (deadline, fecha máxima)
     suspend fun getPendingTasks(workerId: String): Flow<List<PendingTask>>
+
+    // Historial de asistencia de un trabajador con horas y pago guardados
+    suspend fun getAttendanceHistory(workerId: String): Flow<List<AttendanceRecord>>
 
     // Valida el PIN. Devuelve un resultado sellado (sealed)
     suspend fun authenticate(pin: String): LoginResult

@@ -46,8 +46,22 @@ data class PendingTask(
 
 enum class PendingTaskStatus {
     PENDING,
+    IN_PROGRESS,
     COMPLETED
 }
+
+// Reporte de una actividad: cambio de estado realizado por el trabajador
+// junto con un mensaje opcional para que el admin lo revise.
+data class ActivityReport(
+    val id: String = "",
+    val workerId: String = "",
+    val workerName: String = "",
+    val taskId: String = "",
+    val taskTitle: String = "",
+    val status: String = "",      // IN_PROGRESS | COMPLETED
+    val message: String = "",
+    val timestamp: Long = 0L
+)
 
 // Detalle de trabajador: información + actividades en curso y pendientes
 data class WorkerDetail(

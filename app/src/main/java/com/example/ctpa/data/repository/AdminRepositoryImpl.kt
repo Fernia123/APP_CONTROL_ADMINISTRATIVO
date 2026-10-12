@@ -3,6 +3,7 @@ package com.example.ctpa.data.repository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.DocumentSnapshot
+import com.example.ctpa.domain.model.ActivityReport
 import com.example.ctpa.domain.model.AdminStats
 import com.example.ctpa.domain.model.AttendanceRecord
 import com.example.ctpa.domain.model.PendingTask
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -35,37 +37,61 @@ class AdminRepositoryImpl @Inject constructor(
             val workersMap = workersSnapshot.documents.mapNotNull { mapWorker(it) }
                 .associateBy { it.docId.ifEmpty { it.id } }
 
+            // Se leen todos los registros para conservar las horas y el pago
+            // de los turnos ya cerrados, no solo los abiertos.
             val attendanceSnapshot = firestore.collection("attendance")
-                .whereEqualTo("clockOutTime", null)
                 .get()
                 .await()
 
             val now = System.currentTimeMillis()
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            val startOfDay = cal.timeInMillis
+
             var totalHours = 0.0
             var totalPayroll = 0.0
             var totalOvertimeMinutes = 0
             var pendingApprovalsCount = 0
+            var activeWorkersCount = 0
 
             attendanceSnapshot.documents.forEach { doc ->
                 val workerId = doc.getString("workerId") ?: ""
-                val clockIn = doc.getLong("clockInTime") ?: now
-                val elapsedMins = maxOf(0, ((now - clockIn) / 60000).toInt())
                 val worker = workersMap[workerId] ?: workersMap.values.find { it.id == workerId }
-                val rate = worker?.hourlyRate ?: 0.0
-                val maxMins = (worker?.maxDailyHours ?: 8) * 60
+                val rate = worker?.hourlyRate ?: doc.getDouble("hourlyRate") ?: 0.0
+                val maxMins = ((worker?.maxDailyHours
+                    ?: (doc.getLong("maxDailyHours")?.toInt() ?: 8)) * 60)
+                val clockIn = doc.getLong("clockInTime") ?: now
+                val clockOut = doc.getLong("clockOutTime")
+
+                // Ignorar turnos cerrados en días anteriores
+                if (clockOut != null && clockOut < startOfDay) return@forEach
+
+                val isOpen = clockOut == null
+                if (isOpen) activeWorkersCount++
+
+                // Horas conservadas en el registro (o calculadas si falta el dato)
+                val elapsedMins = if (isOpen) {
+                    maxOf(0, ((now - clockIn) / 60000).toInt())
+                } else {
+                    doc.getLong("elapsedMinutes")?.toInt()
+                        ?: maxOf(0, ((clockOut - clockIn) / 60000).toInt())
+                }
 
                 val hours = elapsedMins / 60.0
                 totalHours += hours
-                totalPayroll += hours * rate
+                totalPayroll += if (isOpen) hours * rate
+                    else (doc.getDouble("totalPay") ?: hours * rate)
 
-                if (elapsedMins > maxMins) {
-                    val ot = elapsedMins - maxMins
-                    totalOvertimeMinutes += ot
+                // Solo los turnos abiertos requieren aprobación de overtime
+                if (isOpen && elapsedMins > maxMins) {
+                    totalOvertimeMinutes += elapsedMins - maxMins
                     pendingApprovalsCount++
                 }
             }
 
-            val activeWorkersCount = attendanceSnapshot.documents.size
             val avgRate = if (workersMap.isNotEmpty()) {
                 workersMap.values.map { it.hourlyRate }.average()
             } else 0.0
@@ -141,6 +167,74 @@ class AdminRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getTodayAttendance(): Flow<List<AttendanceRecord>> = flow {
+        try {
+            val workersSnapshot = firestore.collection("workers").get().await()
+            val workersMap = workersSnapshot.documents.mapNotNull { mapWorker(it) }
+                .associateBy { it.docId.ifEmpty { it.id } }
+
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            val startOfDay = cal.timeInMillis
+
+            val attendanceSnapshot = firestore.collection("attendance")
+                .whereGreaterThanOrEqualTo("clockInTime", startOfDay)
+                .get()
+                .await()
+
+            val now = System.currentTimeMillis()
+            val records = attendanceSnapshot.documents.mapNotNull { doc ->
+                val workerId = doc.getString("workerId") ?: ""
+                val worker = workersMap[workerId] ?: workersMap.values.find { it.id == workerId }
+                val clockIn = doc.getLong("clockInTime") ?: return@mapNotNull null
+                val clockOut = doc.getLong("clockOutTime")
+                val rate = worker?.hourlyRate ?: doc.getDouble("hourlyRate") ?: 0.0
+                val isOpen = clockOut == null
+                val maxMins = (worker?.maxDailyHours
+                    ?: (doc.getLong("maxDailyHours")?.toInt() ?: 8)) * 60
+
+                // Horas conservadas en el registro (o calculadas si falta el dato)
+                val elapsedMins = if (isOpen) {
+                    maxOf(0, ((now - clockIn) / 60000).toInt())
+                } else {
+                    doc.getLong("elapsedMinutes")?.toInt()
+                        ?: maxOf(0, ((clockOut - clockIn) / 60000).toInt())
+                }
+
+                // Cobro por horas: horas trabajadas * tarifa por hora
+                val pay = if (isOpen) (elapsedMins / 60.0) * rate
+                    else (doc.getDouble("totalPay") ?: (elapsedMins / 60.0) * rate)
+
+                val statusStr = doc.getString("status") ?: "ACTIVE"
+                val status = when (statusStr) {
+                    "ON_BREAK" -> WorkerStatus.ON_BREAK
+                    "CLOCKED_OUT" -> WorkerStatus.CLOCKED_OUT
+                    else -> WorkerStatus.ACTIVE
+                }
+
+                AttendanceRecord(
+                    id = doc.id,
+                    workerId = worker?.docId ?: workerId,
+                    workerName = worker?.name ?: doc.getString("workerName") ?: workerId,
+                    clockInTime = clockIn,
+                    clockOutTime = clockOut,
+                    elapsedMinutes = elapsedMins,
+                    currentPay = pay,
+                    location = worker?.facility ?: doc.getString("location") ?: "",
+                    status = status,
+                    isOvertime = elapsedMins > maxMins,
+                    overtimeMinutes = maxOf(0, elapsedMins - maxMins)
+                )
+            }
+            emit(records)
+        } catch (e: Exception) {
+            emit(emptyList())
+        }
+    }
+
     override suspend fun addWorker(worker: Worker) {
         val id = worker.id.ifBlank { worker.docId }
         val data = mapOf(
@@ -158,6 +252,30 @@ class AdminRepositoryImpl @Inject constructor(
         firestore.collection("workers")
             .add(data)
             .await()
+    }
+
+    override suspend fun deleteWorker(workerId: String) {
+        val docId = workerId.ifBlank { return }
+        // Cerrar cualquier asistencia abierta antes de eliminar al trabajador
+        try {
+            val attendanceSnapshot = firestore.collection("attendance")
+                .whereEqualTo("workerId", docId)
+                .whereEqualTo("clockOutTime", null)
+                .get()
+                .await()
+            for (doc in attendanceSnapshot.documents) {
+                firestore.collection("attendance").document(doc.id)
+                    .update(
+                        mapOf(
+                            "clockOutTime" to System.currentTimeMillis(),
+                            "status" to "CLOCKED_OUT"
+                        )
+                    )
+                    .await()
+            }
+        } catch (_: Exception) { /* La asistencia es best-effort */ }
+
+        firestore.collection("workers").document(docId).delete().await()
     }
 
     private fun mapWorker(doc: DocumentSnapshot): Worker? = try {
@@ -183,17 +301,18 @@ class AdminRepositoryImpl @Inject constructor(
             val workerDoc = firestore.collection("workers").document(workerId).get().await()
             val worker = mapWorker(workerDoc) ?: return@flow emit(null)
 
-            // Tareas pendientes
+            // Tareas pendientes (incluye las que están en proceso)
             val pendingSnapshot = firestore.collection("pending_tasks")
                 .whereEqualTo("workerId", workerId)
-                .whereEqualTo("status", PendingTaskStatus.PENDING.name)
                 .get()
                 .await()
 
-            val pendingTasks = pendingSnapshot.documents.mapNotNull { doc ->
-                val t = doc.toObject(PendingTask::class.java) ?: return@mapNotNull null
-                t.copy(id = doc.id)
-            }
+            val pendingTasks = pendingSnapshot.documents
+                .mapNotNull { doc ->
+                    val t = doc.toObject(PendingTask::class.java) ?: return@mapNotNull null
+                    t.copy(id = doc.id)
+                }
+                .filter { it.status != PendingTaskStatus.COMPLETED }
 
             // Actividades en proceso
             val inProgressSnapshot = firestore.collection("tasks")
@@ -250,9 +369,33 @@ class AdminRepositoryImpl @Inject constructor(
             .await()
     }
 
+    override suspend fun updatePendingTask(
+        taskId: String,
+        title: String,
+        description: String,
+        deadline: Long
+    ) {
+        firestore.collection("pending_tasks")
+            .document(taskId)
+            .update(
+                mapOf(
+                    "title" to title,
+                    "description" to description,
+                    "deadline" to deadline
+                )
+            )
+            .await()
+    }
+
+    override suspend fun deletePendingTask(taskId: String) {
+        firestore.collection("pending_tasks")
+            .document(taskId)
+            .delete()
+            .await()
+    }
+
     override suspend fun getAllPendingTasks(): Flow<List<PendingTask>> = callbackFlow {
         val registration = firestore.collection("pending_tasks")
-            .whereEqualTo("status", PendingTaskStatus.PENDING.name)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     trySend(emptyList())
@@ -262,9 +405,38 @@ class AdminRepositoryImpl @Inject constructor(
                     ?.mapNotNull { doc ->
                         doc.toObject(PendingTask::class.java)?.copy(id = doc.id)
                     }
+                    // Se muestran todos menos los completados (incluye pendientes y en proceso)
+                    ?.filter { it.status != PendingTaskStatus.COMPLETED }
                     ?.sortedBy { it.deadline }
                     ?: emptyList()
                 trySend(tasks)
+            }
+        awaitClose { registration.remove() }
+    }
+
+    override suspend fun getActivityReports(): Flow<List<ActivityReport>> = callbackFlow {
+        val registration = firestore.collection("activity_reports")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                val reports = snapshot?.documents
+                    ?.mapNotNull { doc ->
+                        ActivityReport(
+                            id = doc.id,
+                            workerId = doc.getString("workerId") ?: "",
+                            workerName = doc.getString("workerName") ?: "",
+                            taskId = doc.getString("taskId") ?: "",
+                            taskTitle = doc.getString("taskTitle") ?: "",
+                            status = doc.getString("status") ?: "",
+                            message = doc.getString("message") ?: "",
+                            timestamp = doc.getLong("timestamp") ?: 0L
+                        )
+                    }
+                    ?.sortedByDescending { it.timestamp }
+                    ?: emptyList()
+                trySend(reports)
             }
         awaitClose { registration.remove() }
     }

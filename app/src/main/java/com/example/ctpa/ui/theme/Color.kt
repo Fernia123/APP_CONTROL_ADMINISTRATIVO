@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Color
 // ============================================================
 val Emerald500 = Color(0xFF10B981)      // Verde principal (botones, avatares)
 val Emerald600 = Color(0xFF059669)      // Verde para texto/enlaces (sobre claro y oscuro)
-val Emerald700Container = Color(0xFF047857) // Contenedor fijo (botón "Trabajador", texto blanco)
+val Emerald700Container = Color(0xFF8BC34A) // Contenedor fijo (botón "Trabajador", texto blanco)
 val White = Color(0xFFFFFFFF)           // Texto/iconos SOBRE acentos y paneles oscuros
 val Red500 = Color(0xFFEF4444)          // Peligro (siempre sobre fondo claro/tinte)
 

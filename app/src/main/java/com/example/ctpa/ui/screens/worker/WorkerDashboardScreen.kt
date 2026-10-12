@@ -16,15 +16,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ctpa.domain.model.Task
 import com.example.ctpa.domain.model.TaskStatus
 import com.example.ctpa.ui.components.*
 import com.example.ctpa.ui.theme.*
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.ui.tooling.preview.Preview
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +50,7 @@ fun WorkerDashboardScreen(
                 title = {
                     Column {
                         Text("ShiftPulse", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        Text("FIELD OPERATIONS", style = MaterialTheme.typography.labelSmall, color = Gray500)
+                        Text("OPERACIONES DE CAMPO", style = MaterialTheme.typography.labelSmall, color = Gray500)
                     }
                 },
                 actions = {
@@ -55,11 +61,11 @@ fun WorkerDashboardScreen(
                             tint = Gray700
                         )
                     }
-                    Text("Active Tasks Dashboard", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Panel de tareas activas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Regresar")
                     }
                 }
             )
@@ -69,25 +75,25 @@ fun WorkerDashboardScreen(
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 NavigationBarItem(
                     icon = { Icon(Icons.Filled.List, contentDescription = null) },
-                    label = { Text("Tasks") },
+                    label = { Text("Tareas") },
                     selected = uiState.selectedSection == 0,
                     onClick = { viewModel.onSectionSelected(0) }
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
-                    label = { Text("Schedule") },
+                    icon = { Icon(Icons.Filled.Checklist, contentDescription = null) },
+                    label = { Text("Actividades") },
                     selected = uiState.selectedSection == 1,
                     onClick = { viewModel.onSectionSelected(1) }
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Filled.History, contentDescription = null) },
-                    label = { Text("History") },
+                    label = { Text("Historial") },
                     selected = uiState.selectedSection == 2,
                     onClick = { viewModel.onSectionSelected(2) }
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Filled.Person, contentDescription = null) },
-                    label = { Text("Profile") },
+                    label = { Text("Perfil") },
                     selected = uiState.selectedSection == 3,
                     onClick = { viewModel.onSectionSelected(3) }
                 )
@@ -103,8 +109,8 @@ fun WorkerDashboardScreen(
         ) {
             when (uiState.selectedSection) {
                 0 -> TasksSection(viewModel, uiState, timeFormatted)
-                1 -> ScheduleSection(uiState)
-                2 -> HistorySection()
+                1 -> AssignedActivitiesSection(uiState)
+                2 -> HistorySection(uiState)
                 3 -> ProfileSection(
                     uiState,
                     isDark = isDark,
@@ -126,6 +132,9 @@ private fun TasksSection(
     val totalCount = uiState.tasks.size
     val completedCount = uiState.tasks.count { it.status == TaskStatus.COMPLETED || it.status == TaskStatus.DONE }
     val activeCount = uiState.tasks.count { it.status == TaskStatus.ACTIVE || it.status == TaskStatus.IN_PROGRESS }
+
+    var taskToUpdate by remember { mutableStateOf<Task?>(null) }
+    var targetStatus by remember { mutableStateOf(TaskStatus.IN_PROGRESS) }
 
     Column {
         // 1. Timer Card
@@ -154,11 +163,11 @@ private fun TasksSection(
                 Icon(Icons.Filled.Info, contentDescription = null, tint = Emerald500, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Log sync reminder", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Gray900)
-                    Text("Update your active tasks...", style = MaterialTheme.typography.bodySmall, color = Gray500)
+                    Text("Recordatorio de sincronización", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Gray900)
+                    Text("Actualiza tus tareas activas...", style = MaterialTheme.typography.bodySmall, color = Gray500)
                 }
                 TextButton(onClick = { viewModel.refreshLog() }) {
-                    Text("Update Now", color = Emerald600, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("Actualizar ahora", color = Emerald600, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
@@ -192,7 +201,7 @@ private fun TasksSection(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Today's Assigned Tasks", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Gray900)
+                Text("Tareas asignadas de hoy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Gray900)
                 Spacer(modifier = Modifier.weight(1f))
                 Row(
                     modifier = Modifier
@@ -223,7 +232,7 @@ private fun TasksSection(
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                val tabs = listOf("All ($totalCount)", "Active ($activeCount)", "Done ($completedCount)")
+                val tabs = listOf("Todas ($totalCount)", "Activas ($activeCount)", "Completadas ($completedCount)")
                 tabs.forEachIndexed { index, tab ->
                     val isSelected = uiState.selectedTab == index
                     FilterChip(
@@ -269,7 +278,17 @@ private fun TasksSection(
                 }
             } else {
                 filteredTasks.forEach { task ->
-                    TaskItem(task = task)
+                    TaskItem(
+                        task = task,
+                        onMarkInProgress = {
+                            taskToUpdate = task
+                            targetStatus = TaskStatus.IN_PROGRESS
+                        },
+                        onMarkCompleted = {
+                            taskToUpdate = task
+                            targetStatus = TaskStatus.COMPLETED
+                        }
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
@@ -294,82 +313,139 @@ private fun TasksSection(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = if (uiState.isClockedOut) "CLOCK IN / INICIO DE NUEVO TURNO" else "CLOCK OUT / SALIDA",
+                    text = if (uiState.isClockedOut) "MARCAR ENTRADA / NUEVO TURNO" else "MARCAR SALIDA",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 Text(
-                    text = if (uiState.isClockedOut) "Reinicia el cronómetro para un nuevo turno" else "Logs verified GPS coordinates & generates timesheet",
+                    text = if (uiState.isClockedOut) "Reinicia el cronómetro para un nuevo turno" else "Verifica tu ubicación GPS y genera tu reporte de horas",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.8f)
                 )
             }
         }
-    }
-}
 
-@Composable
-fun ScheduleSection(uiState: WorkerDashboardUiState) {
-    val shifts = listOf(
-        Triple("Lun 06 - Vie 10 Oct", "07:00 - 15:30", "Turno A • ${uiState.facility.ifBlank { "Main Facility" }}"),
-        Triple("Sáb 11 Oct", "08:00 - 12:00", "Medio turno • mantenimiento"),
-        Triple("Lun 13 - Vie 17 Oct", "07:00 - 15:30", "Turno A • confirmado")
-    )
-
-    SectionScaffold(
-        icon = Icons.Filled.CalendarMonth,
-        title = "Schedule",
-        subtitle = "Próximos turnos asignados",
-        accent = Color(0xFF3B82F6)
-    ) {
-        shifts.forEach { (days, hours, note) ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconBadge(
-                        icon = Icons.Filled.Event,
-                        tint = Color(0xFF3B82F6),
-                        size = 34.dp,
-                        iconSize = 16.dp
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(days, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Gray900)
-                        Text(note, style = MaterialTheme.typography.bodySmall, color = Gray500)
-                    }
-                    Text(hours, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+        // Diálogo para marcar estado + dejar mensaje al admin
+        taskToUpdate?.let { task ->
+            TaskUpdateDialog(
+                task = task,
+                targetStatus = targetStatus,
+                onDismiss = { taskToUpdate = null },
+                onConfirm = { message ->
+                    viewModel.updateTaskStatus(task, targetStatus, message)
+                    taskToUpdate = null
                 }
-            }
-            Spacer(modifier = Modifier.height(10.dp))
+            )
         }
     }
 }
 
 @Composable
-fun HistorySection() {
-    val week = Triple("40h 15m", "$642.50", "5 de 5 turnos")
+private fun TaskUpdateDialog(
+    task: Task,
+    targetStatus: TaskStatus,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var message by remember { mutableStateOf("") }
+    val isCompleted = targetStatus == TaskStatus.COMPLETED
+
+    AppDialog(
+        onDismiss = onDismiss,
+        icon = if (isCompleted) Icons.Filled.CheckCircle else Icons.Filled.Autorenew,
+        accent = if (isCompleted) Emerald500 else Color(0xFFF59E0B),
+        title = if (isCompleted) "Completar actividad" else "Marcar en proceso",
+        subtitle = task.title,
+        confirmLabel = if (isCompleted) "Completar" else "Guardar",
+        confirmIcon = Icons.Filled.Save,
+        onConfirm = { onConfirm(message) }
+    ) {
+        Text(
+            text = "Deja un mensaje para tu administrador. Aparecerá en el reporte de actividades diarias.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Gray500
+        )
+        OutlinedTextField(
+            value = message,
+            onValueChange = { message = it },
+            label = { Text("Mensaje para el admin (opcional)") },
+            leadingIcon = { Icon(Icons.Filled.Chat, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+            maxLines = 4
+        )
+    }
+}
+
+@Composable
+fun AssignedActivitiesSection(uiState: WorkerDashboardUiState) {
+    val activeTasks = uiState.tasks.filter {
+        it.status == TaskStatus.ACTIVE || it.status == TaskStatus.IN_PROGRESS
+    }
+    val doneTasks = uiState.tasks.filter {
+        it.status == TaskStatus.COMPLETED || it.status == TaskStatus.DONE
+    }
 
     SectionScaffold(
-        icon = Icons.Filled.History,
-        title = "History",
-        subtitle = "Horas y turnos registrados",
+        icon = Icons.Filled.Checklist,
+        title = "Actividades asignadas",
+        subtitle = "Tus tareas activas y realizadas",
         accent = Emerald600
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            MiniStat(label = "Semana 41", value = week.first, modifier = Modifier.weight(1f))
-            MiniStat(label = "Devengado", value = week.second, modifier = Modifier.weight(1f))
-        }
-        Spacer(modifier = Modifier.height(10.dp))
+        ActivityGroup(
+            title = "Activas",
+            count = activeTasks.size,
+            accent = Emerald600,
+            emptyText = "No tienes actividades activas",
+            tasks = activeTasks
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        ActivityGroup(
+            title = "Realizadas",
+            count = doneTasks.size,
+            accent = Color(0xFF3B82F6),
+            emptyText = "Aún no has completado actividades",
+            tasks = doneTasks
+        )
+    }
+}
+
+@Composable
+private fun ActivityGroup(
+    title: String,
+    count: Int,
+    accent: Color,
+    emptyText: String,
+    tasks: List<Task>
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(accent)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = Gray900
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = "$count",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = accent
+        )
+    }
+    Spacer(modifier = Modifier.height(10.dp))
+
+    if (tasks.isEmpty()) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -380,18 +456,211 @@ fun HistorySection() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconBadge(
-                    icon = Icons.Filled.FactCheck,
-                    tint = Emerald600,
+                    icon = if (title == "Activas") Icons.Filled.DirectionsRun else Icons.Filled.DoneAll,
+                    tint = accent,
+                    size = 34.dp,
+                    iconSize = 16.dp
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = emptyText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Gray500
+                )
+            }
+        }
+    } else {
+        tasks.forEach { task ->
+            TaskItem(task = task)
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+    }
+}
+
+@Composable
+fun HistorySection(uiState: WorkerDashboardUiState) {
+    val totalMinutes = (uiState.weekHours * 60).toInt()
+    val hoursText = "${totalMinutes / 60}h ${String.format("%02d", totalMinutes % 60)}m"
+    val payText = "S/." + String.format("%.2f", uiState.weekPay)
+    val todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+    SectionScaffold(
+        icon = Icons.Filled.History,
+        title = "Historial",
+        subtitle = "Horas realizadas y monto a pagar por día",
+        accent = Emerald600
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            MiniStat(label = "Horas últimos 7 días", value = hoursText, modifier = Modifier.weight(1f))
+            MiniStat(label = "Devengado 7 días", value = payText, modifier = Modifier.weight(1f))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (uiState.dailyShifts.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconBadge(
+                        icon = Icons.Filled.FactCheck,
+                        tint = Emerald600,
+                        size = 34.dp,
+                        iconSize = 16.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        "Aún no hay turnos cerrados registrados",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Gray500
+                    )
+                }
+            }
+        } else {
+            uiState.dailyShifts.forEach { day ->
+                DailyShiftCard(
+                    day = day,
+                    isToday = day.dateKey == todayKey,
+                    overtimeStatus = uiState.overtimeStatus
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyShiftCard(day: DailyShift, isToday: Boolean, overtimeStatus: String?) {
+    val hoursText = "${day.elapsedMinutes / 60}h ${String.format("%02d", day.elapsedMinutes % 60)}m"
+    val payText = "S/." + String.format("%.2f", day.pay)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBadge(
+                    icon = Icons.Filled.CalendarMonth,
+                    tint = if (isToday) Emerald600 else Color(0xFF3B82F6),
                     size = 34.dp,
                     iconSize = 16.dp
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Última semana", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Gray900)
-                    Text("Firmado y sincronizado con Firebase", style = MaterialTheme.typography.bodySmall, color = Gray500)
+                    Text(
+                        text = if (isToday) "${day.label} (Hoy)" else day.label,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Gray900
+                    )
+                    Text(
+                        text = "$hoursText trabajadas",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Gray500
+                    )
+                    if (day.rate > 0.0) {
+                        Text(
+                            text = "Cobro por horas: S/.${String.format("%.2f", day.rate)}/h",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Gray500
+                        )
+                    }
                 }
-                Text(week.third, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Emerald600)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Monto a pagar", style = MaterialTheme.typography.labelSmall, color = Gray500)
+                    Text(
+                        text = payText,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Emerald600
+                    )
+                }
             }
+
+            if (day.isOvertime) {
+                Spacer(modifier = Modifier.height(10.dp))
+                OvertimeReviewBanner(
+                    overtimeMinutes = day.overtimeMinutes,
+                    status = overtimeStatus
+                )
+            }
+        }
+    }
+}
+
+private data class OvertimeTheme(
+    val color: Color,
+    val background: Color,
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String
+)
+
+@Composable
+private fun OvertimeReviewBanner(overtimeMinutes: Int, status: String?) {
+    val otText = "${overtimeMinutes / 60}h ${String.format("%02d", overtimeMinutes % 60)}m"
+
+    val theme = when (status) {
+        "approved" -> OvertimeTheme(
+            color = Emerald600,
+            background = Emerald50,
+            icon = Icons.Filled.CheckCircle,
+            title = "Horas extra confirmadas",
+            subtitle = "El administrador aprobó $otText adicionales"
+        )
+        "rejected" -> OvertimeTheme(
+            color = Color(0xFFEF4444),
+            background = Red50,
+            icon = Icons.Filled.Cancel,
+            title = "Horas extra no aprobadas",
+            subtitle = "Se excedieron $otText sin autorización"
+        )
+        else -> OvertimeTheme(
+            color = Color(0xFFD97706),
+            background = Color(0xFFFEF3C7),
+            icon = Icons.Filled.HourglassTop,
+            title = "Horas extra en revisión",
+            subtitle = "Excediste el horario por $otText — pendiente de confirmación del administrador"
+        )
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(theme.background)
+            .padding(10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector = theme.icon,
+            contentDescription = null,
+            tint = theme.color,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(
+                text = theme.title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = theme.color
+            )
+            Text(
+                text = theme.subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = Gray700
+            )
         }
     }
 }
@@ -406,7 +675,7 @@ fun ProfileSection(
 
     SectionScaffold(
         icon = Icons.Filled.Person,
-        title = "Profile",
+        title = "Perfil",
         subtitle = "Datos del trabajador",
         accent = Color(0xFF7C3AED)
     ) {
@@ -439,7 +708,7 @@ fun ProfileSection(
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Gray900)
-                Text(uiState.facility.ifBlank { "Main Facility" }, style = MaterialTheme.typography.bodySmall, color = Gray500)
+                Text(uiState.facility.ifBlank { "Sede principal" }, style = MaterialTheme.typography.bodySmall, color = Gray500)
                 Spacer(modifier = Modifier.height(14.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),

@@ -156,7 +156,7 @@ fun OvertimeAlertCard(
             ) {
                 Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Force Clock-Out", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Forzar salida", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

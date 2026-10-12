@@ -3,8 +3,10 @@ package com.example.ctpa.data.repository
 
 import com.example.ctpa.domain.repository.AuthRepository
 import com.google.firebase.firestore.FirebaseFirestore
+import com.example.ctpa.domain.model.AttendanceRecord
 import com.example.ctpa.domain.model.PendingTask
 import com.example.ctpa.domain.model.Worker
+import com.example.ctpa.domain.model.WorkerStatus
 import com.example.ctpa.domain.repository.LoginResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -64,6 +66,51 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getAttendanceHistory(workerId: String): Flow<List<AttendanceRecord>> = flow {
+        try {
+            val snapshot = firestore.collection("attendance")
+                .whereEqualTo("workerId", workerId)
+                .get()
+                .await()
+
+            val records = snapshot.documents.mapNotNull { doc ->
+                val clockIn = doc.getLong("clockInTime") ?: return@mapNotNull null
+                val clockOut = doc.getLong("clockOutTime")
+                val rate = doc.getDouble("hourlyRate") ?: 0.0
+
+                // Se conservan las horas y el pago guardados al cerrar el turno;
+                // si no existen, se calculan de los timestamps.
+                val elapsedMins = doc.getLong("elapsedMinutes")?.toInt()
+                    ?: if (clockOut != null) maxOf(0, ((clockOut - clockIn) / 60000).toInt()) else 0
+                val pay = doc.getDouble("totalPay")
+                    ?: (elapsedMins / 60.0) * rate
+
+                val statusStr = doc.getString("status") ?: "ACTIVE"
+                val status = when (statusStr) {
+                    "ON_BREAK" -> WorkerStatus.ON_BREAK
+                    "CLOCKED_OUT" -> WorkerStatus.CLOCKED_OUT
+                    else -> WorkerStatus.ACTIVE
+                }
+
+                AttendanceRecord(
+                    id = doc.id,
+                    workerId = workerId,
+                    workerName = doc.getString("workerName") ?: "",
+                    clockInTime = clockIn,
+                    clockOutTime = clockOut,
+                    elapsedMinutes = elapsedMins,
+                    currentPay = pay,
+                    location = doc.getString("location") ?: "",
+                    status = status
+                )
+            }.sortedByDescending { it.clockInTime }
+
+            emit(records)
+        } catch (e: Exception) {
+            emit(emptyList())
+        }
+    }
+
     override suspend fun authenticate(pin: String): LoginResult {
         return try {
             // 1. Verificar si es la Clave Maestra (Admin)
@@ -90,6 +137,7 @@ class AuthRepositoryImpl @Inject constructor(
                 val doc = workerSnapshot.documents.first()
                 val worker = mapWorker(doc)
                 if (worker != null) {
+                    registerClockIn(worker)
                     return LoginResult.SuccessWorker(worker)
                 }
             }
@@ -99,6 +147,42 @@ class AuthRepositoryImpl @Inject constructor(
 
         } catch (e: Exception) {
             LoginResult.Error(e.message ?: "Error de conexión")
+        }
+    }
+
+    private suspend fun registerClockIn(worker: Worker) {
+        try {
+            val workerKey = worker.docId.ifEmpty { worker.id }
+
+            // Evitar duplicados: si ya tiene una entrada abierta, no registrar otra
+            val existing = firestore.collection("attendance")
+                .whereEqualTo("workerId", workerKey)
+                .whereEqualTo("clockOutTime", null)
+                .limit(1)
+                .get()
+                .await()
+
+            if (existing.documents.isNotEmpty()) return
+
+            firestore.collection("attendance")
+                .add(
+                    mapOf(
+                        "workerId" to workerKey,
+                        "workerName" to worker.name,
+                        "clockInTime" to System.currentTimeMillis(),
+                        "clockOutTime" to null,
+                        "status" to "ACTIVE",
+                        "location" to worker.facility,
+                        // Se guarda la tarifa para conservar el cálculo del pago
+                        "hourlyRate" to worker.hourlyRate,
+                        "maxDailyHours" to worker.maxDailyHours,
+                        "elapsedMinutes" to 0,
+                        "totalPay" to 0.0
+                    )
+                )
+                .await()
+        } catch (e: Exception) {
+            // No interrumpir el login si falla el registro de asistencia
         }
     }
 

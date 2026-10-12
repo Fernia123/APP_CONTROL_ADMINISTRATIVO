@@ -113,7 +113,7 @@ fun LoginScreenContent(
                         color = Gray900
                     )
                     Text(
-                        text = "FIELD OPERATIONS",
+                        text = "OPERACIONES DE CAMPO",
                         style = MaterialTheme.typography.labelSmall,
                         color = Gray500,
                         letterSpacing = 1.sp
@@ -147,7 +147,7 @@ fun LoginScreenContent(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Site #42-North",
+                                text = "Sede #42-Norte",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Emerald600,
                                 fontWeight = FontWeight.SemiBold
@@ -167,14 +167,14 @@ fun LoginScreenContent(
 
             // ===== WELCOME =====
             Text(
-                text = "Welcome back!",
+                text = "¡Bienvenido!",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = Gray900,
                 fontSize = 32.sp
             )
             Text(
-                text = "Select worker profile & enter 4-digit PIN to clock in.",
+                text = "Selecciona tu perfil e ingresa tu PIN de 4 dígitos para marcar entrada.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Gray500,
                 modifier = Modifier.padding(top = 4.dp)
@@ -303,7 +303,7 @@ fun LoginScreenContent(
                             .padding(24.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "No workers registered", color = Gray500)
+                        Text(text = "No hay trabajadores registrados", color = Gray500)
                     }
                 }
             }
@@ -317,7 +317,7 @@ fun LoginScreenContent(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "AUTHENTICATION PIN",
+                    text = "PIN DE AUTENTICACIÓN",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = Gray700,
@@ -332,7 +332,7 @@ fun LoginScreenContent(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Secure Terminal",
+                        text = "Terminal segura",
                         style = MaterialTheme.typography.labelSmall,
                         color = Gray500
                     )
@@ -350,8 +350,8 @@ fun LoginScreenContent(
 
             Text(
                 text = if (uiState.pin.length == 3)
-                    "Enter last digit to activate facial verification"
-                else "Enter your 4-digit PIN",
+                    "Ingresa el último dígito para activar la verificación facial"
+                else "Ingresa tu PIN de 4 dígitos",
                 style = MaterialTheme.typography.bodySmall,
                 color = if (uiState.pin.length == 3) Emerald500 else Gray500,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -389,13 +389,13 @@ fun LoginScreenContent(
                 ) {
                     Column(horizontalAlignment = Alignment.Start) {
                         Text(
-                            text = "Clock In / Entrada",
+                            text = "Marcar entrada",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = "Verifies with photo",
+                            text = "Se verifica con foto",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.8f)
                         )
@@ -440,7 +440,7 @@ fun LoginScreenContent(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Forgot PIN?", color = Gray500)
+                    Text("¿Olvidaste tu PIN?", color = Gray500)
                 }
                 TextButton(onClick = onSwitchFacility) {
                     Icon(
@@ -450,7 +450,7 @@ fun LoginScreenContent(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Switch Facility", color = Gray500)
+                    Text("Cambiar sede", color = Gray500)
                 }
             }
 
@@ -470,7 +470,7 @@ fun LoginScreenContent(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Station #12  •  Terminal GPS Locked  •  v4.8",
+                    text = "Estación #12  •  GPS de terminal bloqueado  •  v4.8",
                     style = MaterialTheme.typography.labelSmall,
                     color = Gray400
                 )

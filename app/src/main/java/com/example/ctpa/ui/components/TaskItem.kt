@@ -3,6 +3,7 @@ package com.example.ctpa.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,7 +24,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +52,12 @@ import com.example.ctpa.ui.theme.White
  * (transcurrido / estimado) y chips de estado con icono propio.
  */
 @Composable
-fun TaskItem(task: Task, modifier: Modifier = Modifier) {
+fun TaskItem(
+    task: Task,
+    modifier: Modifier = Modifier,
+    onMarkInProgress: (() -> Unit)? = null,
+    onMarkCompleted: (() -> Unit)? = null
+) {
     val accent = statusColor(task.status)
 
     Card(
@@ -179,6 +187,48 @@ fun TaskItem(task: Task, modifier: Modifier = Modifier) {
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Gray500
                             )
+                        }
+                    }
+                }
+
+                // ===== Acciones del trabajador =====
+                val canUpdate = task.status == TaskStatus.ACTIVE || task.status == TaskStatus.IN_PROGRESS
+                if (canUpdate && (onMarkInProgress != null || onMarkCompleted != null)) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (task.status != TaskStatus.IN_PROGRESS && onMarkInProgress != null) {
+                            OutlinedButton(
+                                onClick = onMarkInProgress,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Autorenew,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "En proceso", fontSize = 12.sp)
+                            }
+                        }
+                        if (onMarkCompleted != null) {
+                            TextButton(
+                                onClick = onMarkCompleted,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Emerald500,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Completar",
+                                    color = Emerald600,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
                 }

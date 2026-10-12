@@ -92,7 +92,7 @@ fun TimerCard(
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "ACTIVE SHIFT • LIVE TIMING",
+                        text = "TURNO ACTIVO • CRONÓMETRO EN VIVO",
                         style = MaterialTheme.typography.labelSmall,
                         color = Gray700,
                         fontWeight = FontWeight.Bold,
