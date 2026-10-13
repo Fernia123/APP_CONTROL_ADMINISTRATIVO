@@ -7,6 +7,7 @@ import com.example.ctpa.domain.model.Task
 import com.example.ctpa.domain.model.TaskStatus
 import com.example.ctpa.domain.model.WorkerStatus
 import com.example.ctpa.domain.repository.AuthRepository
+import com.example.ctpa.util.NotificationHelper
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -65,7 +66,8 @@ data class WorkerDashboardUiState(
 class WorkerDashboardViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val authRepository: AuthRepository,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val notificationHelper: NotificationHelper
 ) : ViewModel() {
 
     val workerId: String = savedStateHandle.get<String>("workerId") ?: ""
@@ -75,6 +77,12 @@ class WorkerDashboardViewModel @Inject constructor(
     private var clockInTimestamp: Long = 0L
     private var attendanceDocId: String? = null
     private var timerJob: Job? = null
+    private var reminderJob: Job? = null
+
+    companion object {
+        // Intervalo entre recordatorios de actividad mientras el trabajador está en turno
+        private const val REMINDER_INTERVAL_MS = 60_000L
+    }
 
     init {
         loadWorkerData()
@@ -243,10 +251,12 @@ class WorkerDashboardViewModel @Inject constructor(
                         )
                     }
                     startTimer()
+                    startActivityReminders()
                 } else {
                     _uiState.update {
                         it.copy(isClockedOut = true, isOnBreak = false, elapsedSeconds = 0L)
                     }
+                    stopActivityReminders()
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isClockedOut = true) }
@@ -267,6 +277,32 @@ class WorkerDashboardViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /** Mientras el trabajador está en turno, recuerda sus actividades pendientes. */
+    private fun startActivityReminders() {
+        if (reminderJob?.isActive == true) return
+        reminderJob = viewModelScope.launch {
+            while (isActive) {
+                val state = _uiState.value
+                if (state.isClockedOut) break
+                val pending = state.tasks.filter {
+                    it.status == TaskStatus.ACTIVE || it.status == TaskStatus.IN_PROGRESS
+                }
+                if (pending.isNotEmpty()) {
+                    notificationHelper.notifyActivityReminder(
+                        workerName = state.workerName,
+                        pendingTitles = pending.map { it.title.ifBlank { "Actividad pendiente" } }
+                    )
+                }
+                delay(REMINDER_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopActivityReminders() {
+        reminderJob?.cancel()
+        reminderJob = null
     }
 
     fun onTabSelected(index: Int) {
@@ -328,6 +364,30 @@ class WorkerDashboardViewModel @Inject constructor(
                     )
                 ).await()
 
+                // Si terminó la actividad, avisar al administrador (trabajador + tarea)
+                if (newStatus == TaskStatus.COMPLETED || newStatus == TaskStatus.DONE) {
+                    val workerName = _uiState.value.workerName
+                    try {
+                        firestore.collection("admin_notifications").add(
+                            mapOf(
+                                "type" to "TASK_COMPLETED",
+                                "workerId" to workerId,
+                                "workerName" to workerName,
+                                "taskId" to task.id,
+                                "taskTitle" to task.title,
+                                "message" to message.trim(),
+                                "timestamp" to System.currentTimeMillis(),
+                                "read" to false
+                            )
+                        ).await()
+                    } catch (_: Exception) { }
+
+                    notificationHelper.notifyAdminTaskCompleted(
+                        workerName = workerName,
+                        taskTitle = task.title
+                    )
+                }
+
                 loadTasks()
                 _uiState.update {
                     it.copy(
@@ -384,6 +444,7 @@ class WorkerDashboardViewModel @Inject constructor(
                 attendanceDocId = null
                 clockInTimestamp = 0L
                 timerJob?.cancel()
+                stopActivityReminders()
 
                 _uiState.update {
                     it.copy(
@@ -434,6 +495,7 @@ class WorkerDashboardViewModel @Inject constructor(
                     )
                 }
                 startTimer()
+                startActivityReminders()
             } catch (e: Exception) {
                 _uiState.update { it.copy(message = "Error al iniciar turno: ${e.message}") }
             }

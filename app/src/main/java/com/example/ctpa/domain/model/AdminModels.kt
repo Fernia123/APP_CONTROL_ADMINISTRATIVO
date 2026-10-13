@@ -70,3 +70,16 @@ data class WorkerDetail(
     val pendingTasks: List<PendingTask> = emptyList(),
     val overdueCount: Int = 0
 )
+
+// Notificación dirigida al administrador (p. ej. cuando un trabajador completa una actividad)
+data class AdminNotification(
+    val id: String = "",
+    val type: String = "",
+    val workerId: String = "",
+    val workerName: String = "",
+    val taskId: String = "",
+    val taskTitle: String = "",
+    val message: String = "",
+    val timestamp: Long = 0L,
+    val read: Boolean = false
+)

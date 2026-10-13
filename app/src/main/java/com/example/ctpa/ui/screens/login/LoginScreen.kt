@@ -494,6 +494,11 @@ fun LoginScreenContent(
                 }
             }
         }
+
+        LoadingOverlay(
+            visible = uiState.isLoading,
+            message = "Verificando acceso..."
+        )
     }
 }
 

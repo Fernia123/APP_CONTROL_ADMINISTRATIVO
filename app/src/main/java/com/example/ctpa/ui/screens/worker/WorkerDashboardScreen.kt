@@ -100,25 +100,32 @@ fun WorkerDashboardScreen(
             }
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .background(Gray50)
-        ) {
-            when (uiState.selectedSection) {
-                0 -> TasksSection(viewModel, uiState, timeFormatted)
-                1 -> AssignedActivitiesSection(uiState)
-                2 -> HistorySection(uiState)
-                3 -> ProfileSection(
-                    uiState,
-                    isDark = isDark,
-                    onDarkModeChange = themeViewModel::setDarkMode
-                )
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .background(Gray50)
+            ) {
+                when (uiState.selectedSection) {
+                    0 -> TasksSection(viewModel, uiState, timeFormatted)
+                    1 -> AssignedActivitiesSection(uiState)
+                    2 -> HistorySection(uiState)
+                    3 -> ProfileSection(
+                        uiState,
+                        isDark = isDark,
+                        onDarkModeChange = themeViewModel::setDarkMode
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp)) // Espacio para el bottom nav
             }
 
-            Spacer(modifier = Modifier.height(24.dp)) // Espacio para el bottom nav
+            LoadingOverlay(
+                visible = uiState.isLoading,
+                message = "Cargando datos..."
+            )
         }
     }
 }
@@ -269,11 +276,23 @@ private fun TasksSection(
                             .padding(24.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = if (uiState.isLoading) "Cargando tareas..." else "No hay tareas asignadas en esta categoría",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Gray500
-                        )
+                        if (uiState.isLoading) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                PulseLoader()
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Cargando tareas...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Gray500
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "No hay tareas asignadas en esta categoría",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Gray500
+                            )
+                        }
                     }
                 }
             } else {

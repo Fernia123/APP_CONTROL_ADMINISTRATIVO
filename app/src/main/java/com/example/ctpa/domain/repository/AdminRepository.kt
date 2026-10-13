@@ -3,6 +3,7 @@ package com.example.ctpa.domain.repository
 
 
 import com.example.ctpa.domain.model.ActivityReport
+import com.example.ctpa.domain.model.AdminNotification
 import com.example.ctpa.domain.model.AdminStats
 import com.example.ctpa.domain.model.AttendanceRecord
 import com.example.ctpa.domain.model.PendingTask
@@ -54,6 +55,9 @@ interface AdminRepository {
 
     // Reportes de actividad enviados por los trabajadores (reporte diario)
     suspend fun getActivityReports(): Flow<List<ActivityReport>>
+
+    // Notificaciones dirigidas al admin (por ejemplo, actividades completadas)
+    suspend fun getTaskNotifications(): Flow<List<AdminNotification>>
 
     // Alertas de overtime pendientes
     suspend fun getOvertimeAlerts(): Flow<List<AttendanceRecord>>

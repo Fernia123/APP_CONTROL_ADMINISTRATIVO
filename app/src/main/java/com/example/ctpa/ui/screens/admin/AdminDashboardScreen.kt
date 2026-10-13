@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ctpa.domain.model.ActivityReport
 import com.example.ctpa.domain.model.AdminStats
+import com.example.ctpa.domain.model.AdminNotification
 import com.example.ctpa.domain.model.AttendanceRecord
 import com.example.ctpa.domain.model.PendingTask
 import com.example.ctpa.domain.model.PendingTaskStatus
@@ -191,6 +192,7 @@ fun AdminDashboardContent(
             }
         }
     ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -452,6 +454,12 @@ fun AdminDashboardContent(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        LoadingOverlay(
+            visible = uiState.isLoading,
+            message = "Sincronizando datos..."
+        )
         }
     }
 
@@ -1940,6 +1948,102 @@ private fun WorkersSection(
 
 // ===== SECCIÓN: REPORTES =====
 @Composable
+private fun ActivityNotificationsCard(notifications: List<AdminNotification>) {
+    val timeFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp),
+        border = BorderStroke(1.dp, Gray200)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBadge(
+                    icon = Icons.Filled.NotificationsActive,
+                    tint = Emerald600,
+                    size = 36.dp,
+                    iconSize = 18.dp
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Notificaciones de actividades",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Gray900
+                    )
+                    Text(
+                        text = "Avisos cuando un trabajador completa una actividad",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Gray500
+                    )
+                }
+                if (notifications.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Emerald50)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "${notifications.size}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Emerald600
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (notifications.isEmpty()) {
+                EmptyHint("Sin actividades completadas por ahora")
+            } else {
+                notifications.take(5).forEach { notification ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconBadge(
+                            icon = Icons.Filled.CheckCircle,
+                            tint = Emerald500,
+                            size = 30.dp,
+                            iconSize = 16.dp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = notification.workerName.ifBlank { "Trabajador" },
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Gray900,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = notification.taskTitle.ifBlank { "Actividad" },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Gray500,
+                                maxLines = 1
+                            )
+                        }
+                        if (notification.timestamp > 0) {
+                            Text(
+                                text = timeFormat.format(Date(notification.timestamp)),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Gray500
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+@Composable
 private fun ReportsSection(uiState: AdminDashboardUiState, onShowDailyClosing: () -> Unit) {
     val now = System.currentTimeMillis()
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
@@ -1951,6 +2055,10 @@ private fun ReportsSection(uiState: AdminDashboardUiState, onShowDailyClosing: (
 
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         SectionHeading("Panel analítico", "Resumen operativo del día")
+
+        ActivityNotificationsCard(uiState.taskNotifications)
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             onClick = onShowDailyClosing,

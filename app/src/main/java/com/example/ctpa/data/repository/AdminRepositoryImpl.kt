@@ -3,7 +3,9 @@ package com.example.ctpa.data.repository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.Query
 import com.example.ctpa.domain.model.ActivityReport
+import com.example.ctpa.domain.model.AdminNotification
 import com.example.ctpa.domain.model.AdminStats
 import com.example.ctpa.domain.model.AttendanceRecord
 import com.example.ctpa.domain.model.PendingTask
@@ -437,6 +439,35 @@ class AdminRepositoryImpl @Inject constructor(
                     ?.sortedByDescending { it.timestamp }
                     ?: emptyList()
                 trySend(reports)
+            }
+        awaitClose { registration.remove() }
+    }
+
+    override suspend fun getTaskNotifications(): Flow<List<AdminNotification>> = callbackFlow {
+        val registration = firestore.collection("admin_notifications")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(30)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                val notifications = snapshot?.documents
+                    ?.mapNotNull { doc ->
+                        AdminNotification(
+                            id = doc.id,
+                            type = doc.getString("type") ?: "",
+                            workerId = doc.getString("workerId") ?: "",
+                            workerName = doc.getString("workerName") ?: "",
+                            taskId = doc.getString("taskId") ?: "",
+                            taskTitle = doc.getString("taskTitle") ?: "",
+                            message = doc.getString("message") ?: "",
+                            timestamp = doc.getLong("timestamp") ?: 0L,
+                            read = doc.getBoolean("read") ?: false
+                        )
+                    }
+                    ?: emptyList()
+                trySend(notifications)
             }
         awaitClose { registration.remove() }
     }

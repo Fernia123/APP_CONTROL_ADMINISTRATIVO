@@ -3,12 +3,14 @@ package com.example.ctpa.ui.screens.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ctpa.domain.model.ActivityReport
+import com.example.ctpa.domain.model.AdminNotification
 import com.example.ctpa.domain.model.AdminStats
 import com.example.ctpa.domain.model.AttendanceRecord
 import com.example.ctpa.domain.model.PendingTask
 import com.example.ctpa.domain.model.Worker
 import com.example.ctpa.domain.model.WorkerDetail
 import com.example.ctpa.domain.repository.AdminRepository
+import com.example.ctpa.util.NotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +25,8 @@ data class AdminDashboardUiState(
     val workers: List<Worker> = emptyList(),
     val pendingTasks: List<PendingTask> = emptyList(),
     val activityReports: List<ActivityReport> = emptyList(),
+    // Notificaciones de actividades completadas por los trabajadores
+    val taskNotifications: List<AdminNotification> = emptyList(),
     val overtimeAlerts: List<AttendanceRecord> = emptyList(),
     // Turnos del día (abiertos y cerrados) para el cierre diario
     val todayShifts: List<AttendanceRecord> = emptyList(),
@@ -53,17 +57,22 @@ data class AdminDashboardUiState(
 
 @HiltViewModel
 class AdminDashboardViewModel @Inject constructor(
-    private val adminRepository: AdminRepository
+    private val adminRepository: AdminRepository,
+    private val notificationHelper: NotificationHelper
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AdminDashboardUiState())
     val uiState: StateFlow<AdminDashboardUiState> = _uiState.asStateFlow()
+
+    private val shownNotificationIds = mutableSetOf<String>()
+    private var notificationsInitialized = false
 
     init {
         loadData()
         loadWorkers()
         loadPendingTasks()
         loadActivityReports()
+        loadTaskNotifications()
     }
 
     private fun loadData() {
@@ -112,6 +121,30 @@ class AdminDashboardViewModel @Inject constructor(
         viewModelScope.launch {
             adminRepository.getActivityReports().collect { reports ->
                 _uiState.update { it.copy(activityReports = reports) }
+            }
+        }
+    }
+
+    /** Escucha las notificaciones para el admin y avisa al llegar una actividad completada. */
+    private fun loadTaskNotifications() {
+        viewModelScope.launch {
+            adminRepository.getTaskNotifications().collect { notifications ->
+                if (!notificationsInitialized) {
+                    // Evita repetir avisos de notificaciones previas al abrir la pantalla
+                    shownNotificationIds.addAll(notifications.map { it.id })
+                    notificationsInitialized = true
+                } else {
+                    notifications
+                        .filter { it.type == "TASK_COMPLETED" && it.id !in shownNotificationIds }
+                        .forEach { notification ->
+                            shownNotificationIds.add(notification.id)
+                            notificationHelper.notifyAdminTaskCompleted(
+                                workerName = notification.workerName,
+                                taskTitle = notification.taskTitle
+                            )
+                        }
+                }
+                _uiState.update { it.copy(taskNotifications = notifications) }
             }
         }
     }
